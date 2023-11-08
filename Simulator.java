@@ -4,15 +4,13 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 
 /* TODO:
  * - color built into Line
- * - stopping at stops
  * - traveling citizens
  * - transfers to nearby stops
- * - stop capacities
+ * - stop capacities (for trains) and amount of citizens waiting
  */
 
 public class Simulator {
@@ -91,9 +89,7 @@ class Sim extends App {
 		} catch (IOException e) { assert false; }
 		
 		this.nodes = stations;
-		
-		// TODO ADD ALL LINES
-		
+				
 		System.out.println(lines.keySet());
 		ArrayList<String> linesToRemove = new ArrayList<String>();
 		
@@ -101,7 +97,29 @@ class Sim extends App {
 			
 			for (int x = 0; x < l.stops.length; x+= l.stops.length/4) {
 				
-				l.addTrain(new Train(x, l, Vector3.green, TIME_INCREMENT));
+				Vector3 col = new Vector3("808183");
+				
+				if ("ACE".contains(l.getID())) {
+					col = new Vector3("0039a6");
+				} else if ("BDFM".contains(l.getID())) {
+					col = new Vector3("ff6319");
+				} else if ("G".contains(l.getID())) {
+					col = new Vector3("6cbe45");
+				} else if ("L".contains(l.getID())) {
+					col = new Vector3("a7a9ac");
+				} else if ("JZ".contains(l.getID())) {
+					col = new Vector3("996633");
+				} else if ("NQRW".contains(l.getID())) {
+					col = new Vector3("fccc0a");
+				} else if ("123".contains(l.getID())) {
+					col = new Vector3("ee352e");
+				} else if ("456".contains(l.getID())) {
+					col = new Vector3("00933c");
+				} else if ("7".contains(l.getID())) {
+					col = new Vector3("b933ad");
+				}
+				
+				l.addTrain(new Train(x, l, col, TIME_INCREMENT));
 			
 			}
 			
@@ -221,22 +239,23 @@ class Node extends Drawable {
 
 }
 
-// TODO REWORK TIME INCREMENT NAME/SETUP (into speed)
 class Train extends Drawable {
 	
 	Line line;
 	int stop;
 	double time;
 	double stopTime;
-	double TIME_INCREMENT;
+	double stoppedTime;
+	double speed;
 	private static final double DEFAULT_TRAIN_SIZE = 1.0;
+	private static final double DEFAULT_STOP_DURATION = 6;
 	
-	public Train(int spawnStop, Line line, Vector3 color, double TIME_INCREMENT) { 
+	public Train(int spawnStop, Line line, Vector3 color, double speed) { 
 	
 		super(line.stops[spawnStop].pos, color, DEFAULT_TRAIN_SIZE);
 		this.line = line;
 		this.stop = spawnStop;
-		this.TIME_INCREMENT = TIME_INCREMENT;
+		this.speed = speed;
 		
 	}
 	
@@ -249,14 +268,23 @@ class Train extends Drawable {
 	public void updatePosAlongLine() {
 		
 		int nextStop = (this.stop+1) % line.stops.length;
-		time += TIME_INCREMENT;
-		stopTime += TIME_INCREMENT;
+		time += speed;
+		stopTime += speed;
 		
 		if (stopTime >= this.line.dists[nextStop]) {
 			
-			stopTime = 0;
-			stop = nextStop;
-			this.pos = this.line.stops[stop].pos;
+			if (stoppedTime >= DEFAULT_STOP_DURATION) {
+			
+				stopTime = 0;
+				stoppedTime = 0;
+				stop = nextStop;
+				this.pos = this.line.stops[stop].pos;
+			
+			} else {
+				
+				stoppedTime += speed;
+				
+			}
 			
 		} else {
 			

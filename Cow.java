@@ -68,6 +68,11 @@ class Vector3 {
         this.y = s;
         this.z = s;
     }
+    Vector3(String hex) {
+    	this.x = (double)Integer.parseInt(hex.substring(0, 2), 16)/255.0;
+    	this.y = (double)Integer.parseInt(hex.substring(2, 4), 16)/255.0;
+    	this.z = (double)Integer.parseInt(hex.substring(4, 6), 16)/255.0;
+    }
     
     Vector3 plus(Vector3 other) { return new Vector3(this.x + other.x, this.y + other.y, this.z + other.z); }
     Vector3 minus(Vector3 other) { return new Vector3(this.x - other.x, this.y - other.y, this.z - other.z); }
