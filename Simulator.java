@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 /* TODO:
- * - color built into Line
+ * - add in branches, express service, and missing shuttle lines
  * - traveling citizens
  * - transfers to nearby stops
  * - stop capacities (for trains) and amount of citizens waiting
