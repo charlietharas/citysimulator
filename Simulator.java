@@ -7,10 +7,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 /* TODO:
- * - add in branches, express service, and missing shuttle lines
- * - traveling citizens
- * - transfers to nearby stops
+ * - proper pathfinding to enable traveling citizens. unsure of implementation.
+ * - transfers to nearby stops built into pathfinding
  * - stop capacities (for trains) and amount of citizens waiting
+ * - click-to-spawn citizens + random / proportional citizen generation based on some kind of density maps?
  */
 
 public class Simulator {
@@ -47,6 +47,9 @@ class Sim extends App {
 		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/subway.txt")) ) {
             
 			String line;
+			lines.put("A_L", new Line("A_L"));
+			lines.put("A_F", new Line("A_F"));
+			
             while ((line = reader.readLine()) != null) {
                 
             	String[] n = line.split(" ");
@@ -67,6 +70,14 @@ class Sim extends App {
             	
             	for (String str : stopLines) {
             		
+            		if (str.equals("A") && !"".contains(stop.id)) {
+            			
+            			lines.get("A_L").addStop(stop, 1);
+            			lines.get("A_F").addStop(stop, 1);
+            			continue;
+            			
+            		}
+            		
             		lines.get(str).addStop(stop, 1);
             		
             	}
@@ -74,6 +85,8 @@ class Sim extends App {
             }
         
 		} catch (IOException e) { assert false; }
+		
+		lines.remove("A");
 		
 		HashMap<String, String> lineConfigs = new HashMap<String, String>();
 		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/lines.txt")) ) {
@@ -95,30 +108,29 @@ class Sim extends App {
 		
 		for (Line l : lines.values()) {
 			
-			for (int x = 0; x < l.stops.length; x+= l.stops.length/4) {
-				
-				Vector3 col = new Vector3("808183");
-				
-				if ("ACE".contains(l.getID())) {
-					col = new Vector3("0039a6");
-				} else if ("BDFM".contains(l.getID())) {
-					col = new Vector3("ff6319");
-				} else if ("G".contains(l.getID())) {
-					col = new Vector3("6cbe45");
-				} else if ("L".contains(l.getID())) {
-					col = new Vector3("a7a9ac");
-				} else if ("JZ".contains(l.getID())) {
-					col = new Vector3("996633");
-				} else if ("NQRW".contains(l.getID())) {
-					col = new Vector3("fccc0a");
-				} else if ("123".contains(l.getID())) {
-					col = new Vector3("ee352e");
-				} else if ("456".contains(l.getID())) {
-					col = new Vector3("00933c");
-				} else if ("7".contains(l.getID())) {
-					col = new Vector3("b933ad");
-				}
-				
+			Vector3 col = new Vector3("808183");
+			if ("AA_LA_FCE".contains(l.getID()) && !l.getID().equals("L") && !l.getID().equals("F")) {
+				col = new Vector3("0039a6");
+			} else if ("BDFM".contains(l.getID())) {
+				col = new Vector3("ff6319");
+			} else if ("G".contains(l.getID())) {
+				col = new Vector3("6cbe45");
+			} else if ("L".contains(l.getID())) {
+				col = new Vector3("a7a9ac");
+			} else if ("JZ".contains(l.getID())) {
+				col = new Vector3("996633");
+			} else if ("NQRW".contains(l.getID())) {
+				col = new Vector3("fccc0a");
+			} else if ("123".contains(l.getID())) {
+				col = new Vector3("ee352e");
+			} else if ("456".contains(l.getID())) {
+				col = new Vector3("00933c");
+			} else if ("7".contains(l.getID())) {
+				col = new Vector3("b933ad");
+			}
+			
+			for (int x = 0; x < l.stops.length; x += 8) {
+
 				l.addTrain(new Train(x, l, col, TIME_INCREMENT));
 			
 			}
