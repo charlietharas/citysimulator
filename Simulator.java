@@ -173,6 +173,7 @@ class Sim extends App {
     			
     			t.updatePosAlongLine();
     			drawCircle(t.pos, t.size, t.color);
+    			drawString(t.line.getID(), t.pos, Vector3.black, 11, true);
     			
     		}
     		    		
