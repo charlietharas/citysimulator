@@ -7,10 +7,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 /* TODO:
- * - proper pathfinding to enable traveling citizens. unsure of implementation.
+ * - CONVERT LINE AND SUBWAY DATA TO CSV
+ * - better/clean draw methods for pan/zoom
+ * - accurate line data on map using extra dataset
+ * - clean up code so that the NYC implementation of the simulator lives outside the simulator
+ * - pathfinding to enable travelling citizens
  * - transfers to nearby stops built into pathfinding
- * - stop capacities (for trains) and amount of citizens waiting
- * - click-to-spawn citizens + random / proportional citizen generation based on some kind of density maps?
+ * - stop capacities (for trains) and amount of citizens waiting at stops
+ * - click-to-spawn citizens + random / proportional citizen generation based on density maps + time-of-day
+ * - documentation
+ * - speed up/slow down simulation ??
+ * - simulation statistics (+ graphing ??) ??
  */
 
 public class Simulator {
@@ -44,7 +51,7 @@ class Sim extends App {
 		
 		HashMap<String, Line> lines = new HashMap<String, Line>();
 		
-		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/subway.txt")) ) {
+		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/stations.txt")) ) {
             
 			String line;
 			lines.put("A_L", new Line("A_L"));
@@ -89,7 +96,7 @@ class Sim extends App {
 		lines.remove("A");
 		
 		HashMap<String, String> lineConfigs = new HashMap<String, String>();
-		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/lines.txt")) ) {
+		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/lines_nodes.txt")) ) {
             
 			String line;
             while ((line = reader.readLine()) != null) {
