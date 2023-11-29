@@ -23,6 +23,7 @@ import java.util.HashMap;
  * - train capacities and amount of citizens waiting at stops
  * - click-to-spawn citizens + random / proportional citizen generation based on density maps (+ time-of-day?)
  * - better documentation
+ * - proper private/protected/public levels for all classes ??
  * - speed up/slow down simulation ??
  * - simulation statistics (+ graphing ??) ??
  * - map rotation ??
@@ -285,7 +286,7 @@ class Drawable {
 	static Vector2 pan;
 	static Vector2 mousePan;
 
-	String id;
+	private String id;
 	Vector2 pos;
 	Vector3 color;
 	double size;
@@ -543,7 +544,7 @@ class Line {
 
 			for (Node n : this.stops) {
 
-				if (n.id.equals(s.replaceAll("_", " "))) {
+				if (n.getID().equals(s.replaceAll("_", " "))) {
 
 					newStops.add(n);
 
