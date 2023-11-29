@@ -8,8 +8,8 @@ import java.util.HashMap;
 
 /* TODO:
  * - CONVERT LINE AND SUBWAY DATA TO CSV
- * - accurate line data on map using extra dataset
  * - clean up code so that the NYC implementation of the simulator lives outside the simulator
+ * - accurate line data on map using extra dataset
  * - pathfinding to enable travelling citizens
  * - transfers to nearby stops built into pathfinding
  * - stop capacities (for trains) and amount of citizens waiting at stops
@@ -43,9 +43,16 @@ class Sim extends App {
 
 	double globalTime;
 	final double TIME_INCREMENT = 0.1;
+	
+	Vector2 mouseInitialPos;
+	Vector2 mouseFinalPos;
 
 	void setup() {
 
+		mouseInitialPos = new Vector2(0, 0);
+		mouseFinalPos = new Vector2(0, 0);
+		
+		Drawable.mousePan = new Vector2(0, 0);		
 		Drawable.pan = new Vector2(0, 0);
 		Drawable.zoom = 1;
 
@@ -179,7 +186,6 @@ class Sim extends App {
 
 		this.globalTime += TIME_INCREMENT;
 
-		// TODO pan/zoom with mouse
 		if (keyHeld('A')) {
 
 			Drawable.pan = Drawable.pan.plus(new Vector2(-Drawable.PAN_CONST, 0));
@@ -214,7 +220,25 @@ class Sim extends App {
 			Drawable.zoom = 1;
 
 		}
-
+		
+		// TODO fix mouse pan implementation
+		if (mousePressed) {
+			
+			mouseInitialPos = new Vector2(mousePosition);
+			
+		} if (mouseHeld) {
+			
+			Drawable.mousePan = mousePosition.minus(mouseInitialPos);
+			drawLine(mouseInitialPos, mouseFinalPos, Vector3.green);
+			
+		} if (mouseReleased) {
+			
+			mouseFinalPos = new Vector2(mousePosition);
+			
+		}
+		
+		// TODO MOUSE ZOOMING??
+		
 		for (Line l : lines) {
 
 			Drawable.drawCircle(this, l.stops[0]);
@@ -249,6 +273,7 @@ class Drawable {
 
 	static double zoom;
 	static Vector2 pan;
+	static Vector2 mousePan;
 
 	String id;
 	Vector2 pos;
@@ -275,19 +300,19 @@ class Drawable {
 
 	public static void drawCircle(App a, Drawable d) {
 
-		a.drawCircle(d.pos.plus(pan).times(zoom), d.size * zoom, d.color);
+		a.drawCircle(d.pos.plus(pan).plus(mousePan).times(zoom), d.size * zoom, d.color);
 
 	}
 
 	public static void drawLine(App a, Drawable d1, Drawable d2) {
 
-		a.drawLine(d1.pos.plus(pan).times(zoom), d2.pos.plus(pan).times(zoom), d2.color);
+		a.drawLine(d1.pos.plus(pan).plus(mousePan).times(zoom), d2.pos.plus(pan).plus(mousePan).times(zoom), d2.color);
 
 	}
 
 	public static void drawString(App a, Drawable d, String str, Vector3 col, int size, boolean centered) {
 
-		a.drawString(str, d.pos.plus(pan).times(zoom), col, (int) Math.ceil(size * zoom), centered);
+		a.drawString(str, d.pos.plus(pan).plus(mousePan).times(zoom), col, (int) Math.ceil(size * zoom), centered);
 
 	}
 
