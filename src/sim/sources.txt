@@ -1,0 +1,7 @@
+https://github.com/CityOfNewYork/nyc-geo-metadata
+	https://data.cityofnewyork.us/Transportation/Subway-Stations/arq3-7z49
+	https://data.cityofnewyork.us/Transportation/Subway-Lines/3qz8-muuu
+
+https://new.mta.info/maps/subway-line-maps
+
+https://new.mta.info/agency/new-york-city-transit/subway-bus-ridership-2021
