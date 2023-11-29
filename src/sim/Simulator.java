@@ -1,29 +1,38 @@
 package sim;
 
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseWheelEvent;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 /* TODO:
- * - CONVERT LINE AND SUBWAY DATA TO CSV
+ * - convert station data to csv (since table size is constant rectangle). cols: [name, x, y, lines, ridership]
+ * - add colors to line data file
+ * - process location data into world space data inside this program (not python)
+ * - clean up the python program
  * - clean up code so that the NYC implementation of the simulator lives outside the simulator
- * - accurate line data on map using extra dataset
+ * - better logging (Logger class with verbosity levels?)
+ * - show the lines on the screen first
+ * 	- then work on getting the trains to actually travel along them (but this can be lower priority than pathfinding)
  * - pathfinding to enable travelling citizens
  * - transfers to nearby stops built into pathfinding
- * - stop capacities (for trains) and amount of citizens waiting at stops
- * - click-to-spawn citizens + random / proportional citizen generation based on density maps + time-of-day
- * - documentation
+ * - train capacities and amount of citizens waiting at stops
+ * - click-to-spawn citizens + random / proportional citizen generation based on density maps (+ time-of-day?)
+ * - better documentation
  * - speed up/slow down simulation ??
  * - simulation statistics (+ graphing ??) ??
- * - rotate map?
+ * - map rotation ??
  */
 
 public class Simulator {
 
 	public static void main(String [] args) {
 
+		// app initialization
 		App app = new Sim();
 		app.setWindowBackgroundColor(Vector3.white);
 		app.setWindowSizeInWorldUnits(150.0, 180.0);
@@ -42,13 +51,23 @@ class Sim extends App {
 	Node[] nodes;
 
 	double globalTime;
-	final double TIME_INCREMENT = 0.1;
+	static final double TIME_INCREMENT = 0.1;
 	
 	Vector2 mouseInitialPos;
 	Vector2 mouseFinalPos;
 
 	void setup() {
 
+		// mouse wheel zooming
+		this.addMouseWheelListener( new MouseAdapter() {
+            @Override public void mouseWheelMoved(MouseWheelEvent e) {
+            	            		
+	    		Drawable.adjustZoom(-e.getWheelRotation() * Drawable.ZOOM_CONST);
+            		            	
+            }
+        });
+		
+		// initialize zooming and panning variables
 		mouseInitialPos = new Vector2(0, 0);
 		mouseFinalPos = new Vector2(0, 0);
 		
@@ -56,16 +75,16 @@ class Sim extends App {
 		Drawable.pan = new Vector2(0, 0);
 		Drawable.zoom = 1;
 
+		// iterate through stations and add stops to appropriate lines
 		Node[] stations = new Node[473];
 		int i = 0;
 
 		HashMap<String, Line> lines = new HashMap<String, Line>();
 
+		// TODO convert hard-coded things to parameters (e.g # of stops)
 		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/stations.txt")) ) {
 
 			String line;
-			lines.put("A_L", new Line("A_L"));
-			lines.put("A_F", new Line("A_F"));
 
 			while ((line = reader.readLine()) != null) {
 
@@ -87,14 +106,6 @@ class Sim extends App {
 
 				for (String str : stopLines) {
 
-					if (str.equals("A") && !"".contains(stop.id)) {
-
-						lines.get("A_L").addStop(stop, 1);
-						lines.get("A_F").addStop(stop, 1);
-						continue;
-
-					}
-
 					lines.get(str).addStop(stop, 1);
 
 				}
@@ -103,8 +114,7 @@ class Sim extends App {
 
 		} catch (IOException e) { assert false; }
 
-		lines.remove("A");
-
+		// load in configurations for proper stop orders for lines
 		HashMap<String, String> lineConfigs = new HashMap<String, String>();
 		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/lines_nodes.txt")) ) {
 
@@ -118,15 +128,18 @@ class Sim extends App {
 
 		} catch (IOException e) { assert false; }
 
+		// add stations to simulation array
 		this.nodes = stations;
 
+		// apply line configurations, remove problematic/invalid lines
 		System.out.println(lines.keySet());
 		ArrayList<String> linesToRemove = new ArrayList<String>();
 
 		for (Line l : lines.values()) {
 
+			// TODO MAKE THIS AUTOMATIC (read from text file) and clean!
 			Vector3 col = new Vector3Mod("808183");
-			if ("AA_LA_FCE".contains(l.getID()) && !l.getID().equals("L") && !l.getID().equals("F")) {
+			if ("A_LA_FCE".contains(l.getID()) && !l.getID().equals("L") && !l.getID().equals("F")) {
 				col = new Vector3Mod("0039a6");
 			} else if ("BDFM".contains(l.getID())) {
 				col = new Vector3Mod("ff6319");
@@ -171,6 +184,7 @@ class Sim extends App {
 
 		}
 
+		// add lines to simulation array
 		i = 0;
 		this.lines = new Line[lines.keySet().size()];
 
@@ -179,75 +193,69 @@ class Sim extends App {
 			this.lines[i++] = l;
 
 		}
-
+		
 	}
 
 	void loop() {
 
 		this.globalTime += TIME_INCREMENT;
 
+		// panning and zooming with mouse and keyboard
+		if (mousePressed) {
+			
+			mouseInitialPos = new Vector2(mousePosition).minus(Drawable.mousePan);
+			
+		} if (mouseHeld) {
+			
+			Drawable.mousePan = mousePosition.minus(mouseInitialPos);
+			Drawable.constrictPan(Drawable.mousePan);
+			
+		}
+		
 		if (keyHeld('A')) {
 
-			Drawable.pan = Drawable.pan.plus(new Vector2(-Drawable.PAN_CONST, 0));
+			Drawable.adjustPan(-Drawable.PAN_CONST, 0);
 
 		} if (keyHeld('D')) {
 
-			Drawable.pan = Drawable.pan.plus(new Vector2(Drawable.PAN_CONST, 0));
+			Drawable.adjustPan(Drawable.PAN_CONST, 0);
 
 		} if (keyHeld('W')) {
 
-			Drawable.pan = Drawable.pan.plus(new Vector2(0, Drawable.PAN_CONST));
+			Drawable.adjustPan(0, Drawable.PAN_CONST);
 
 		} if (keyHeld('S')) {
 
-			Drawable.pan = Drawable.pan.plus(new Vector2(0, -Drawable.PAN_CONST));
+			Drawable.adjustPan(0, -Drawable.PAN_CONST);
 
 		}
 
 		if (keyHeld('=')) {
 
-			Drawable.zoom = Math.min(Drawable.zoom + Drawable.ZOOM_CONST, Drawable.ZOOM_MAX);
-
+			Drawable.adjustZoom(Drawable.ZOOM_CONST);
+			
 		} if (keyHeld('-')) {
 
-			Drawable.zoom = Math.max(Drawable.zoom - Drawable.ZOOM_CONST, Drawable.ZOOM_MIN);
-
+			Drawable.adjustZoom(-Drawable.ZOOM_CONST);
+			
 		}
 
-		if (keyPressed('R')) {
+		if (keyPressed('C')) {
 
 			Drawable.pan = new Vector2(0, 0);
 			Drawable.zoom = 1;
+			Drawable.mousePan = new Vector2(0, 0);
 
 		}
-		
-		// TODO fix mouse pan implementation
-		if (mousePressed) {
-			
-			mouseInitialPos = new Vector2(mousePosition);
-			
-		} if (mouseHeld) {
-			
-			Drawable.mousePan = mousePosition.minus(mouseInitialPos);
-			drawLine(mouseInitialPos, mouseFinalPos, Vector3.green);
-			
-		} if (mouseReleased) {
-			
-			mouseFinalPos = new Vector2(mousePosition);
-			
-		}
-		
-		// TODO MOUSE ZOOMING??
-		
+				
+		// draw game objects
 		for (Line l : lines) {
 
 			Drawable.drawCircle(this, l.stops[0]);
 			for (int i = 1; i < l.stops.length; i++) {
 
-				Node n = l.stops[i];
-				Node p = l.stops[i-1];
-				Drawable.drawCircle(this, n);
-				Drawable.drawLine(this, p, n);
+				Drawable.drawCircle(this, l.stops[i]);
+				Drawable.drawLine(this, l.stops[i-1], l.stops[i]);
 
 			}
 
@@ -255,7 +263,7 @@ class Sim extends App {
 
 				t.updatePosAlongLine();
 				Drawable.drawCircle(this, t);
-				Drawable.drawString(this, t, t.line.getID(), Vector3.black, 11, true);
+				Drawable.drawString(this, t, t.line.getID(), Vector3.black, Train.FONT_SIZE_CONST, Train.FONT_CENTERED);
 
 			}
 
@@ -270,6 +278,8 @@ class Drawable {
 	final static double ZOOM_MAX = 4;
 	final static double ZOOM_MIN = 0.1;
 	final static double PAN_CONST = 0.25;
+	final static double PAN_X_MINMAX = 50;
+	final static double PAN_Y_MINMAX = 50;
 
 	static double zoom;
 	static Vector2 pan;
@@ -297,6 +307,26 @@ class Drawable {
 		this.size = size;
 
 	}
+	
+	public static void adjustPan(double x, double y) {
+		
+		pan = pan.minus(new Vector2(x, y));
+		constrictPan(pan);
+		
+	}
+	
+	public static void constrictPan(Vector2 pan) {
+		
+		pan.x = Math.min(Math.max(pan.x, -PAN_X_MINMAX), PAN_X_MINMAX);
+		pan.y = Math.min(Math.max(pan.y, -PAN_Y_MINMAX), PAN_Y_MINMAX);
+		
+	}
+	
+	public static void adjustZoom(double z) {
+		
+		zoom = Math.min(Math.max(zoom+z, ZOOM_MIN), ZOOM_MAX);
+		
+	}
 
 	public static void drawCircle(App a, Drawable d) {
 
@@ -317,10 +347,12 @@ class Drawable {
 	}
 
 	public String toString() { return this.id; }
+	public String getID() { return this.id; }
 	public void setID(String id) { this.id = id; }
 
 }
 
+// TODO
 class Citizen extends Drawable {
 
 	public Citizen(Vector2 pos, Vector3 color, double size) {
@@ -340,11 +372,23 @@ class Node extends Drawable {
 		super(pos, color, DEFAULT_NODE_SIZE);
 
 	}
+	
+	public Node(Vector2 pos, Vector3 color, double size) {
+		
+		super(pos, color, size);
+		
+	}
 
 	public Node(String id, Vector2 pos, Vector3 color) {
 
 		super(id, pos, color, DEFAULT_NODE_SIZE);
 
+	}
+	
+	public Node(String id, Vector2 pos, Vector3 color, double size) {
+		
+		super(id, pos, color, size);
+		
 	}
 
 }
@@ -357,8 +401,11 @@ class Train extends Drawable {
 	double stopTime;
 	double stoppedTime;
 	double speed;
-	private static final double DEFAULT_TRAIN_SIZE = 1.0;
-	private static final double DEFAULT_STOP_DURATION = 6;
+	
+	public static final double DEFAULT_TRAIN_SIZE = 1.0;
+	public static final double DEFAULT_STOP_DURATION = 6;
+	public static final int FONT_SIZE_CONST = 11;
+	public static final boolean FONT_CENTERED = true;
 
 	public Train(int spawnStop, Line line, Vector3 color, double speed) { 
 
@@ -383,6 +430,7 @@ class Train extends Drawable {
 
 		if (stopTime >= this.line.dists[nextStop]) {
 
+			// go to next station
 			if (stoppedTime >= DEFAULT_STOP_DURATION) {
 
 				stopTime = 0;
@@ -390,6 +438,7 @@ class Train extends Drawable {
 				stop = nextStop;
 				this.pos = this.line.stops[stop].pos;
 
+			// wait at station
 			} else {
 
 				stoppedTime += speed;
@@ -398,6 +447,7 @@ class Train extends Drawable {
 
 		} else {
 
+			// move along line
 			this.pos = Vector2.lerp(stopTime/this.line.dists[nextStop], this.line.stops[stop].pos, this.line.stops[nextStop].pos);
 
 		}
@@ -418,11 +468,14 @@ class Line {
 		this.id = id;
 
 	}
-
-	public String getID() {
-
-		return this.id;
-
+	
+	public Line(String id, Node[] stops, double[] dists, Train[] trains) {
+		
+		this(id);
+		this.stops = stops;
+		this.dists = dists;
+		this.trains = trains;
+		
 	}
 
 	public void setStops(Node[] stops, double[] distances) {
@@ -439,19 +492,50 @@ class Line {
 		Node[] newStops = new Node[this.stops.length + 1];
 		double[] newDists = new double[this.stops.length + 1];
 		assert this.stops.length == this.dists.length;
+		
 		for (int i = 0; i < this.stops.length; i++) {
 
 			newStops[i] = this.stops[i];
 			newDists[i] = this.dists[i];
 
 		}
+		
 		newStops[newStops.length-1] = stop;
 		newDists[newDists.length-1] = dist;
 		this.stops = newStops;
 		this.dists = newDists;
 
 	}
+	
+	// faster bulk stop add operation
+	public void addStops(Node[] stops, double[] dists) {
+		
+		if (this.stops == null) { this.stops = new Node[0]; }
+		if (this.dists == null) { this.dists = new double[0]; }
+		Node[] newStops = new Node[this.stops.length + stops.length];
+		double[] newDists = new double[this.stops.length + dists.length];
+		assert this.stops.length == this.dists.length;
+		
+		for (int i = 0; i < this.stops.length; i++) {
 
+			newStops[i] = this.stops[i];
+			newDists[i] = this.dists[i];
+
+		}
+		
+		for(int i = 0; i < stops.length; i++) {
+			
+			newStops[i+this.stops.length] = stops[i];
+			newDists[i+this.dists.length] = dists[i];
+			
+		}
+		
+		this.stops = newStops;
+		this.dists = newDists;
+		
+	}
+
+	// reconfigure stop list according to preset stop pattern
 	public void rearrangeStops(String[] stopConfig) {
 
 		ArrayList<Node> newStops = new ArrayList<Node>();
@@ -505,16 +589,19 @@ class Line {
 
 		if (this.trains == null) { this.trains = new Train[0]; }
 		Train[] trainsNew = new Train[this.trains.length + 1];
+		
 		for (int i = 0; i < this.trains.length; i++) {
 
 			trainsNew[i] = this.trains[i];
 
 		}
+		
 		trainsNew[trainsNew.length-1] = train;
 		this.trains = trainsNew;
 
 	}
 
+	// faster bulk train add operation
 	public void addTrains(Train[] trains) {
 
 		if (this.trains == null) { this.trains = new Train[0]; }
@@ -535,6 +622,10 @@ class Line {
 		this.trains = trainsNew;
 
 	}
+	
+	public String toString() { return this.id + ": " + Arrays.toString(this.stops); }
+	public String getID() { return this.id; }
+	public void setID(String id) { this.id = id; }
 
 }
 
