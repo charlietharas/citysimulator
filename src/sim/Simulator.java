@@ -271,6 +271,35 @@ class Sim extends App {
 		}
 
 	}
+	
+	boolean normalize(double[] arr, double min, double max) {
+		
+		if (arr == null || arr.length == 0) { return false; }
+		
+		double minInArr = arr[0];
+		double maxInArr = arr[0];
+		for (double i : arr) {
+			
+			if (i < minInArr) { minInArr = i; }
+			if (i > maxInArr) { maxInArr = i; }
+			
+		}
+		
+		double maxMinDiff = max - min;
+		double maxMinInArrDiff = maxInArr - minInArr;
+		
+		if (maxMinInArrDiff + min == 0) { return false; }
+		
+		for (int i = 0; i < arr.length; i++) {
+			
+		   arr[i] = maxMinDiff * (arr[i] - minInArr) / (maxMinInArrDiff) + min;
+			
+		}
+		
+		return true;
+		
+	}
+	
 }
 
 class Drawable {
