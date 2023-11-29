@@ -8,6 +8,7 @@ import java.util.HashMap;
 
 /* TODO:
  * - CONVERT LINE AND SUBWAY DATA TO CSV
+ * - move cow changes to this file
  * - better/clean draw methods for pan/zoom
  * - accurate line data on map using extra dataset
  * - clean up code so that the NYC implementation of the simulator lives outside the simulator
