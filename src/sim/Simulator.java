@@ -8,7 +8,6 @@ import java.util.HashMap;
 
 /* TODO:
  * - CONVERT LINE AND SUBWAY DATA TO CSV
- * - move cow changes to this file
  * - better/clean draw methods for pan/zoom
  * - accurate line data on map using extra dataset
  * - clean up code so that the NYC implementation of the simulator lives outside the simulator
@@ -116,25 +115,25 @@ class Sim extends App {
 		
 		for (Line l : lines.values()) {
 			
-			Vector3 col = new Vector3("808183");
+			Vector3 col = new Vector3Mod("808183");
 			if ("AA_LA_FCE".contains(l.getID()) && !l.getID().equals("L") && !l.getID().equals("F")) {
-				col = new Vector3("0039a6");
+				col = new Vector3Mod("0039a6");
 			} else if ("BDFM".contains(l.getID())) {
-				col = new Vector3("ff6319");
+				col = new Vector3Mod("ff6319");
 			} else if ("G".contains(l.getID())) {
-				col = new Vector3("6cbe45");
+				col = new Vector3Mod("6cbe45");
 			} else if ("L".contains(l.getID())) {
-				col = new Vector3("a7a9ac");
+				col = new Vector3Mod("a7a9ac");
 			} else if ("JZ".contains(l.getID())) {
-				col = new Vector3("996633");
+				col = new Vector3Mod("996633");
 			} else if ("NQRW".contains(l.getID())) {
-				col = new Vector3("fccc0a");
+				col = new Vector3Mod("fccc0a");
 			} else if ("123".contains(l.getID())) {
-				col = new Vector3("ee352e");
+				col = new Vector3Mod("ee352e");
 			} else if ("456".contains(l.getID())) {
-				col = new Vector3("00933c");
+				col = new Vector3Mod("00933c");
 			} else if ("7".contains(l.getID())) {
-				col = new Vector3("b933ad");
+				col = new Vector3Mod("b933ad");
 			}
 			
 			for (int x = 0; x < l.stops.length; x += 8) {
@@ -446,5 +445,15 @@ class Line {
 		this.trains = trainsNew;
 		
 	}
+	
+}
+
+class Vector3Mod extends Vector3 {
+	
+    Vector3Mod(String hex) {
+    	this.x = (double)Integer.parseInt(hex.substring(0, 2), 16)/255.0;
+    	this.y = (double)Integer.parseInt(hex.substring(2, 4), 16)/255.0;
+    	this.z = (double)Integer.parseInt(hex.substring(4, 6), 16)/255.0;
+    }
 	
 }
