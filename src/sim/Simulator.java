@@ -10,12 +10,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 
 /* TODO:
+ * - blog post!
  * - convert station data to csv (since table size is constant rectangle). cols: [name, x, y, lines, ridership]
  * - add colors to line data file
  * - process location data into world space data inside this program (not python)
  * - clean up the python program
  * - clean up code so that the NYC implementation of the simulator lives outside the simulator
- * - better logging (Logger class with verbosity levels?)
+ * - set up better logging (Logger class with verbosity levels?)
  * - show the lines on the screen first
  * 	- then work on getting the trains to actually travel along them (but this can be lower priority than pathfinding)
  * - pathfinding to enable travelling citizens
@@ -26,6 +27,7 @@ import java.util.HashMap;
  * - proper private/protected/public levels for all classes ??
  * - speed up/slow down simulation ??
  * - simulation statistics (+ graphing ??) ??
+ * - zoop to mouse (work out math??)
  * - map rotation ??
  */
 
