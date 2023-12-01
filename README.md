@@ -30,3 +30,12 @@ I can split it into phases, sure.
 **What is the very first thing I will implement? (Drawing "the data" is usually a good first step.)**
 
 Phase 1, getting all the lines and nodes represented properly on the map with trains moving between them.
+
+### Data Sources
+https://github.com/CityOfNewYork/nyc-geo-metadata
+- [Station points data](https://data.cityofnewyork.us/Transportation/Subway-Stations/arq3-7z49)
+- [Line points data](https://data.cityofnewyork.us/Transportation/Subway-Lines/3qz8-muuu)
+
+[Line order data](https://new.mta.info/maps/subway-line-maps)
+
+[Station ridership data](https://new.mta.info/agency/new-york-city-transit/subway-bus-ridership-2021)
