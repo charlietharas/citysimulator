@@ -9,14 +9,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
+// TODO reminder for blog post throughout
+
 /* TODO:
- * - start working on blog post!
- * - convert station data to csv (since table size is constant rectangle). cols: [name, x, y, lines, ridership]
- * 	- check	for duplicate stations, correct ridership
- * 	- correct lines
- * - add colors to line data file, convert to csv just cus why not
- * - process location data into world space data inside this program (not python)
- * - clean up the python program
  * - clean up code so that the NYC implementation of the simulator lives outside the simulator
  * - set up better logging (Logger class with verbosity levels?)
  * - show the lines on the screen first
@@ -55,6 +50,8 @@ class Sim extends App {
 
 	Line[] lines;
 	Node[] nodes;
+	
+	int numStops = 473;
 
 	double globalTime;
 	static final double TIME_INCREMENT = 0.1;
@@ -85,14 +82,13 @@ class Sim extends App {
 		Drawable.zoom = 1;
 
 		// iterate through stations and add stops to appropriate lines
-		Node[] stations = new Node[473];
-		double[] stationX = new double[473];
-		double[] stationY = new double[473];
+		Node[] stations = new Node[numStops];
+		double[] stationX = new double[numStops];
+		double[] stationY = new double[numStops];
 		int i = 0;
 
 		HashMap<String, Line> lines = new HashMap<String, Line>();
 
-		// TODO convert hard-coded things to parameters (e.g # of stops)
 		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/stations_data.csv")) ) {
 
 			String line;
@@ -140,13 +136,15 @@ class Sim extends App {
 
 		// load in configurations for proper stop orders for lines
 		HashMap<String, String> lineConfigs = new HashMap<String, String>();
-		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/lines_nodes.txt")) ) {
+		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/lines_stations.csv")) ) {
 
 			String line;
 			while ((line = reader.readLine()) != null) {
 
-				if (line.indexOf(" ") == -1) continue;
-				lineConfigs.put(line.substring(0, line.indexOf(",")), line.substring(line.indexOf(",") + 1));
+				if (line.indexOf(",") == -1) { continue; }
+				String lineID = line.substring(0, line.indexOf(","));
+				lines.get(lineID).setColor(new Vector3Mod(line.substring(line.indexOf(",") + 1, line.indexOf(",", line.indexOf(",") + 1))));
+				lineConfigs.put(line.substring(0, line.indexOf(",")), line.substring(line.indexOf(",", line.indexOf(",") + 1) + 1));
 
 			}
 
@@ -156,36 +154,13 @@ class Sim extends App {
 		this.nodes = stations;
 
 		// apply line configurations, remove problematic/invalid lines
-		System.out.println(lines.keySet());
 		ArrayList<String> linesToRemove = new ArrayList<String>();
 
 		for (Line l : lines.values()) {
 
-			// TODO MAKE THIS AUTOMATIC (read from text file) and clean!
-			Vector3 col = new Vector3Mod("808183");
-			if ("A_LA_FCE".contains(l.getID()) && !l.getID().equals("L") && !l.getID().equals("F")) {
-				col = new Vector3Mod("0039a6");
-			} else if ("BDFM".contains(l.getID())) {
-				col = new Vector3Mod("ff6319");
-			} else if ("G".contains(l.getID())) {
-				col = new Vector3Mod("6cbe45");
-			} else if ("L".contains(l.getID())) {
-				col = new Vector3Mod("a7a9ac");
-			} else if ("JZ".contains(l.getID())) {
-				col = new Vector3Mod("996633");
-			} else if ("NQRW".contains(l.getID())) {
-				col = new Vector3Mod("fccc0a");
-			} else if ("123".contains(l.getID())) {
-				col = new Vector3Mod("ee352e");
-			} else if ("456".contains(l.getID())) {
-				col = new Vector3Mod("00933c");
-			} else if ("7".contains(l.getID())) {
-				col = new Vector3Mod("b933ad");
-			}
-
 			for (int x = 0; x < l.stops.length; x += 8) {
 
-				l.addTrain(new Train(x, l, col, TIME_INCREMENT));
+				l.addTrain(new Train(x, l, l.getColor(), TIME_INCREMENT));
 
 			}
 
@@ -207,6 +182,8 @@ class Sim extends App {
 			lines.remove(s);
 
 		}
+		
+		System.out.println("Generated lines " + lines.keySet());
 
 		// add lines to simulation array
 		i = 0;
@@ -278,11 +255,15 @@ class Sim extends App {
 			Drawable.drawCircle(this, l.stops[0]);
 			for (int i = 1; i < l.stops.length; i++) {
 
-				Drawable.drawCircle(this, l.stops[i]);
-				Drawable.drawLine(this, l.stops[i-1], l.stops[i]);
+				Drawable.drawCircle(this, l.stops[i], l.getColor());
+				Drawable.drawLine(this, l.stops[i-1], l.stops[i], l.getColor());
 
 			}
 
+		}
+		
+		for (Line l : lines) {
+			
 			for (Train t : l.trains) {
 
 				t.updatePosAlongLine();
@@ -290,7 +271,7 @@ class Sim extends App {
 				Drawable.drawString(this, t, t.line.getID(), Vector3.black, Train.FONT_SIZE_CONST, Train.FONT_CENTERED);
 
 			}
-
+			
 		}
 
 	}
@@ -386,10 +367,28 @@ class Drawable {
 		a.drawCircle(d.pos.plus(pan).plus(mousePan).times(zoom), d.size * zoom, d.color);
 
 	}
+	
+	public static void drawCircle(App a, Drawable d, Vector3 col) {
+
+		a.drawCircle(d.pos.plus(pan).plus(mousePan).times(zoom), d.size * zoom, col);
+
+	}
 
 	public static void drawLine(App a, Drawable d1, Drawable d2) {
 
 		a.drawLine(d1.pos.plus(pan).plus(mousePan).times(zoom), d2.pos.plus(pan).plus(mousePan).times(zoom), d2.color);
+
+	}
+	
+	public static void drawLine(App a, Drawable d1, Drawable d2, Vector3 col) {
+
+		a.drawLine(d1.pos.plus(pan).plus(mousePan).times(zoom), d2.pos.plus(pan).plus(mousePan).times(zoom), col);
+
+	}
+	
+	public static void drawString(App a, Drawable d, String str, int size, boolean centered) {
+
+		a.drawString(str, d.pos.plus(pan).plus(mousePan).times(zoom), d.color, (int) Math.ceil(size * zoom), centered);
 
 	}
 
@@ -517,6 +516,7 @@ class Train extends Drawable {
 class Line {
 
 	private String id;
+	private Vector3 color;
 	Node[] stops;
 	double[] dists;
 	Train[] trains;
@@ -542,6 +542,9 @@ class Line {
 		this.dists = distances;
 
 	}
+	
+	public void setColor(Vector3 col) { this.color = col; }
+	public Vector3 getColor() { return this.color; }
 
 	public void addStop(Node stop, double dist) {
 
