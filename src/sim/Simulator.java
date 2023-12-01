@@ -59,6 +59,9 @@ class Sim extends App {
 	double globalTime;
 	static final double TIME_INCREMENT = 0.1;
 	
+	static final double MAP_X_SCALE = 0.45;
+	static final double MAP_Y_SCALE = 0.5;
+	
 	Vector2 mouseInitialPos;
 	Vector2 mouseFinalPos;
 
@@ -83,19 +86,21 @@ class Sim extends App {
 
 		// iterate through stations and add stops to appropriate lines
 		Node[] stations = new Node[473];
+		double[] stationX = new double[473];
+		double[] stationY = new double[473];
 		int i = 0;
 
 		HashMap<String, Line> lines = new HashMap<String, Line>();
 
 		// TODO convert hard-coded things to parameters (e.g # of stops)
-		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/stations.txt")) ) {
+		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/stations_data.csv")) ) {
 
 			String line;
 
 			while ((line = reader.readLine()) != null) {
 
-				String[] n = line.split(" ");
-				String[] stopLines = n[3].split("-");
+				String[] n = line.split(",");
+				String[] stopLines = n[4].split("-");
 
 				for (String str : stopLines) {
 
@@ -106,9 +111,12 @@ class Sim extends App {
 					}
 
 				}
-
-				Node stop = new Node(n[0].replaceAll("_", " "), new Vector2(Double.parseDouble(n[1]), Double.parseDouble(n[2])), Vector3.black);
-				stations[i++] = stop;
+				
+				Node stop = new Node(n[1], new Vector2(), Vector3.black);
+				stations[i] = stop;
+				stationX[i] = Double.parseDouble(n[2]);
+				stationY[i] = Double.parseDouble(n[3]);
+				i++;
 
 				for (String str : stopLines) {
 
@@ -119,6 +127,16 @@ class Sim extends App {
 			}
 
 		} catch (IOException e) { assert false; }
+		
+		normalize(stationX, -this._windowWidthInWorldUnits * MAP_X_SCALE, this._windowWidthInWorldUnits * MAP_X_SCALE);
+		normalize(stationY, -this._windowHeightInWorldUnits * MAP_Y_SCALE, this._windowHeightInWorldUnits * MAP_Y_SCALE);
+		
+		for (int x = 0; x < stationX.length; x++) {
+			
+			stations[x].pos.x = stationX[x];
+			stations[x].pos.y = stationY[x];
+			
+		}
 
 		// load in configurations for proper stop orders for lines
 		HashMap<String, String> lineConfigs = new HashMap<String, String>();
@@ -128,7 +146,7 @@ class Sim extends App {
 			while ((line = reader.readLine()) != null) {
 
 				if (line.indexOf(" ") == -1) continue;
-				lineConfigs.put(line.substring(0, line.indexOf(" ")), line.substring(line.indexOf(" ") + 1));
+				lineConfigs.put(line.substring(0, line.indexOf(",")), line.substring(line.indexOf(",") + 1));
 
 			}
 
@@ -173,7 +191,7 @@ class Sim extends App {
 
 			try {
 
-				l.rearrangeStops(lineConfigs.get(l.getID()).split(" "));
+				l.rearrangeStops(lineConfigs.get(l.getID()).split(","));
 
 			} catch (Exception e) {
 
@@ -401,6 +419,8 @@ class Citizen extends Drawable {
 class Node extends Drawable {
 
 	private static final double DEFAULT_NODE_SIZE = 0.5;
+	
+	private double ridership;
 
 	public Node(Vector2 pos, Vector3 color) {
 
@@ -425,6 +445,9 @@ class Node extends Drawable {
 		super(id, pos, color, size);
 		
 	}
+	
+	public void setRidership(double d) { this.ridership = d; }
+	public double getRidership() { return this.ridership; }
 
 }
 
