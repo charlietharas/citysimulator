@@ -10,9 +10,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 
 /* TODO:
- * - blog post!
+ * - start working on blog post!
  * - convert station data to csv (since table size is constant rectangle). cols: [name, x, y, lines, ridership]
- * - add colors to line data file
+ * 	- check	for duplicate stations, correct ridership
+ * 	- correct lines
+ * - add colors to line data file, convert to csv just cus why not
  * - process location data into world space data inside this program (not python)
  * - clean up the python program
  * - clean up code so that the NYC implementation of the simulator lives outside the simulator
@@ -24,6 +26,7 @@ import java.util.HashMap;
  * - train capacities and amount of citizens waiting at stops
  * - click-to-spawn citizens + random / proportional citizen generation based on density maps (+ time-of-day?)
  * - better documentation
+ * - time-based pathfinding (not just distance-based) ??
  * - proper private/protected/public levels for all classes ??
  * - speed up/slow down simulation ??
  * - simulation statistics (+ graphing ??) ??
