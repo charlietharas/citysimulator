@@ -7,7 +7,11 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.PriorityQueue;
+import java.util.Set;
 
 // TODO reminder for blog post throughout
 
@@ -44,7 +48,7 @@ public class Simulator {
 	public static void main(String [] args) {
 
 		// app initialization
-		App app = new Sim(473, 5, new Vector2(150, 180), new Vector2(0.45, 0.5), new Vector2(64, 64), Vector3.white, 1024);
+		App app = new Sim(473, 1.2, new Vector2(150, 180), new Vector2(0.45, 0.5), new Vector2(64, 64), Vector3.white, 1024);
 
 		app.run();
 
@@ -139,6 +143,7 @@ class Sim extends App {
 
 		} catch (IOException e) { assert false; }
 
+		// convert real-world geometry data to world units
 		Vector2 xMinMax = getMinMax(stationX);
 		Vector2 yMinMax = getMinMax(stationY);
 		normalize(stationX, -this._windowWidthInWorldUnits * MAP_X_SCALE, this._windowWidthInWorldUnits * MAP_X_SCALE, xMinMax.x, xMinMax.y);
@@ -229,12 +234,12 @@ class Sim extends App {
 				Node[] lineNodes = new Node[lineX.length];
 
 				for (int i = 0; i < lineX.length; i++) {
-					
+
 					lineXD[i] = Double.parseDouble(lineX[i]);
 					lineYD[i] = Double.parseDouble(lineY[i]);
-					
+
 				}
-								
+
 				normalize(lineXD, -this._windowWidthInWorldUnits * MAP_X_SCALE, this._windowWidthInWorldUnits * MAP_X_SCALE, xMinMax.x, xMinMax.y);
 				normalize(lineYD, -this._windowHeightInWorldUnits * MAP_Y_SCALE, this._windowHeightInWorldUnits * MAP_Y_SCALE, yMinMax.x, yMinMax.y);
 
@@ -249,14 +254,14 @@ class Sim extends App {
 			}
 
 		} catch (IOException e) { assert false; }
-		
+
 		complexLines = new ComplexLine[complexLinesBuilder.size()];
 		for (int i = 0; i < complexLines.length; i++) {
 
 			complexLines[i] = complexLinesBuilder.get(i);
 
 		}
-
+		
 	}
 
 	void loop() {
@@ -310,15 +315,15 @@ class Sim extends App {
 
 		// draw game objects
 		for (ComplexLine cl : complexLines) {
-			
+
 			Drawable.drawComplexLine(this, cl);
-			
+
 		}
-		
+
 		for (Node n : nodes) {
-			
+
 			Drawable.drawCircle(this, n);
-			
+
 		}
 
 		for (Line l : lines) {
@@ -351,9 +356,9 @@ class Sim extends App {
 		return new Vector2(minInArr, maxInArr);
 
 	}
-	
+
 	public static boolean normalize(double[] arr, double min, double max, double minInArr, double maxInArr) {
-		
+
 		double maxMinDiff = max - min;
 		double maxMinInArrDiff = maxInArr - minInArr;
 
@@ -366,7 +371,7 @@ class Sim extends App {
 		}
 
 		return true;
-		
+
 	}
 
 	public double getGlobalTime() { return this.globalTime; }
@@ -462,7 +467,7 @@ class Drawable {
 	}
 
 	public static void drawComplexLine(App a, ComplexLine cl, Vector3 col) {
-		
+
 		for (int i = 1; i < cl.getNodesSize(); i++) {
 
 			drawLine(a, cl.getNode(i-1), cl.getNode(i), col);
@@ -523,33 +528,155 @@ class Node extends Drawable {
 
 	public static final double DEFAULT_NODE_SIZE = 0.5;
 
+	private HashMap<Node, Double> neighbors;
+
 	private double ridership;
+	private double f;
 
 	public Node(Vector2 pos, Vector3 color) {
 
 		super(pos, color, DEFAULT_NODE_SIZE);
+		clearNeighbors();
+		this.f = 0; this.ridership = 0;
 
 	}
 
 	public Node(Vector2 pos, Vector3 color, double size) {
 
 		super(pos, color, size);
-
+		clearNeighbors();
+		this.f = 0; this.ridership = 0;
+		
 	}
 
 	public Node(String id, Vector2 pos, Vector3 color) {
 
 		super(id, pos, color, DEFAULT_NODE_SIZE);
+		clearNeighbors();
+		this.f = 0; this.ridership = 0;
 
 	}
 
 	public Node(String id, Vector2 pos, Vector3 color, double size) {
 
 		super(id, pos, color, size);
+		clearNeighbors();
+		this.f = 0; this.ridership = 0;
 
 	}
 
+	public void addNeighbor(Node n, double d) {
+
+		neighbors.put(n, d);
+
+	}
+
+	public void addNeighbors(Node[] n, double[] d) {
+
+		assert n != null && d != null && n.length == d.length;
+
+		for (int i = 0; i < n.length; i++) {
+
+			neighbors.put(n[i], d[i]);
+
+		}
+
+	}
+
+	public static void addNeighborPair(Node a, Node b, double dist) {
+
+		a.addNeighbor(b, dist);
+		b.addNeighbor(a, dist);
+
+	}
+
+	// pathfinding
+	public double getScore() { return this.f; }
+	public void setScore(double f) { this.f = f; }
+
+	public static ArrayList<Node> findPath(Node start, Node end) {
+
+		PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingDouble(Node::getScore));
+		Set<Node> visited = new HashSet<>();
+		HashMap<Node, Node> from = new HashMap<Node, Node>();
+		HashMap<Node, Double> score = new HashMap<Node, Double>();
+
+		score.put(start, 0.0);
+		start.setScore(score.get(start) + scoreHeuristic(start, end));
+		queue.add(start);
+
+		while (!queue.isEmpty()) {
+
+			Node current = queue.poll();
+
+			if (current.equals(end)) {
+
+				return reconstructPath(from, end);
+
+			}
+
+			visited.add(current);
+
+			for (Node neighbor : current.getNeighbors().keySet()) {
+
+				if (visited.contains(neighbor)) { continue; }
+
+				double tempScore = score.get(current) + current.getNeighbors().get(neighbor);
+
+				if (!queue.contains(neighbor) || tempScore < score.get(neighbor)) {
+					
+					from.put(neighbor, current);
+					score.put(neighbor, tempScore);
+					neighbor.setScore(score.get(neighbor) + scoreHeuristic(neighbor, end));
+
+					if (!queue.contains(neighbor)) {
+						
+						queue.add(neighbor);
+					
+					}
+				
+				}
+			
+			}
+		}
+
+		return null; // no path
+
+	}
+	
+	private static double scoreHeuristic(Node a, Node b) {
+		
+		return Vector2.distanceBetween(a.getPos(), b.getPos());
+		
+	}
+
+	private static ArrayList<Node> reconstructPath(HashMap<Node, Node> from, Node current) {
+
+		ArrayList<Node> path = new ArrayList<>();
+
+		while (from.containsKey(current)) {
+
+			current = from.get(current);
+			path.add(current);
+
+		}
+
+		for (int i = 0; i < path.size()/2; i++) {
+
+			int j = path.size()-1-i;
+			Node temp = path.get(i);
+			path.set(i, path.get(j));
+			path.set(j, temp);
+
+		}
+
+		return path;
+
+	}
+
+	public void clearNeighbors() { neighbors = new HashMap<Node, Double>(); }
 	public void setRidership(double d) { this.ridership = d; }
+	public HashMap<Node, Double> getNeighbors() { return this.neighbors; }
 	public double getRidership() { return this.ridership; }
 	public String toString() { return "Node id=" + this.getID() + " pos=" + this.getPos(); }
 
@@ -687,33 +814,6 @@ class Line {
 
 		newStops[newStops.length-1] = stop;
 		newDists[newDists.length-1] = dist;
-		this.stops = newStops;
-		this.dists = newDists;
-
-	}
-
-	// faster bulk stop add operation
-	public void addStops(Node[] stops, double[] dists) {
-
-		if (this.stops == null) { this.stops = new Node[0]; }
-		if (this.dists == null) { this.dists = new double[0]; }
-		Node[] newStops = new Node[this.stops.length + stops.length];
-		double[] newDists = new double[this.stops.length + dists.length];
-		assert this.stops.length == this.dists.length;
-
-		for (int i = 0; i < this.stops.length; i++) {
-
-			newStops[i] = this.stops[i];
-			newDists[i] = this.dists[i];
-
-		}
-
-		for(int i = 0; i < stops.length; i++) {
-
-			newStops[i+this.stops.length] = stops[i];
-			newDists[i+this.dists.length] = dists[i];
-
-		}
 
 		this.stops = newStops;
 		this.dists = newDists;
@@ -748,7 +848,9 @@ class Line {
 		double[] newDists = new double[newStops.size()];
 		for (int i = 0; i < newStops.size()-1; i++) {
 
-			newDists[i+1] = Vector2.distanceBetween(newStops.get(i).getPos(), newStops.get(i+1).getPos());
+			double dist = Vector2.distanceBetween(newStops.get(i).getPos(), newStops.get(i+1).getPos());
+			newDists[i+1] = dist;
+			Node.addNeighborPair(newStops.get(i), newStops.get(i+1), dist);
 
 		}
 
@@ -763,16 +865,16 @@ class Line {
 		this.dists = newDists;
 
 	}
-	
+
 	// set stop colors to line color
 	public void overrideStopColors() {
-		
+
 		for (int i = 0; i < stops.length; i++) {
-			
+
 			stops[i].setColor(color);
-			
+
 		}
-		
+
 	}
 
 	public void addTrain(Train train) {
@@ -787,28 +889,6 @@ class Line {
 		}
 
 		trainsNew[trainsNew.length-1] = train;
-		this.trains = trainsNew;
-
-	}
-
-	// faster bulk train add operation
-	public void addTrains(Train[] trains) {
-
-		if (this.trains == null) { this.trains = new Train[0]; }
-		Train[] trainsNew = new Train[this.trains.length + trains.length];
-
-		for (int i = 0; i < this.trains.length; i++) {
-
-			trainsNew[i] = this.trains[i];
-
-		}
-
-		for (int i = 0; i < trains.length; i++) {
-
-			trainsNew[i+this.trains.length] = trains[i];
-
-		}
-
 		this.trains = trainsNew;
 
 	}
