@@ -27,12 +27,24 @@ import java.util.HashMap;
  * - map rotation ??
  */
 
+/* TODO procedure for implementing pathfinding:
+ * - use a HashMap to have each node store nearest nodes on line as neighbors w/ dists
+ * 	- (at least eventually) this may require/recommend reworking the distance system. 
+ * 	  	maybe instead of the current system, each node stores neighbors, and lines are just records of nodes that use neighbor hashmaps to get dists for trains??
+ * - have each node also store nearest nodes by distance as neighbors (for transfers)
+ * 	- requires parameter K_NEAREST and a way to generate this efficiently (ideally not O(n^2))
+ * 		initial impulse for this is to just iterate over all nodes, get the smallest 5 by distance (this is the O(n^2) implementation)
+ * 		can also segment the entire grid first and make subarrays?? but then it still might be slow.. so maybe do the first and then write notes about the second
+ * - then implement a pretty basic pathfinding algorithm to get from node to node
+ * - then implement waiting and pickup/offload mechanics for trains/citizens
+ */
+
 public class Simulator {
 
 	public static void main(String [] args) {
 
 		// app initialization
-		App app = new Sim(473, 0.1, new Vector2(150, 180), new Vector2(0.45, 0.5), new Vector2(64, 64), Vector3.white, 1024);
+		App app = new Sim(473, 5, new Vector2(150, 180), new Vector2(0.45, 0.5), new Vector2(64, 64), Vector3.white, 1024);
 
 		app.run();
 
@@ -171,6 +183,7 @@ class Sim extends App {
 			try {
 
 				l.rearrangeStops(lineConfigs.get(l.getID()).split(","));
+				l.overrideStopColors();
 
 			} catch (Exception e) {
 
@@ -302,15 +315,10 @@ class Sim extends App {
 			
 		}
 		
-		for (Line l : lines) {
-
-			Drawable.drawCircle(this, l.getStop(0));
-			for (int i = 1; i < l.getLength(); i++) {
-
-				Drawable.drawCircle(this, l.getStop(i), l.getColor()); // results in unnecessary draw calls, but acceptable
-
-			}
-
+		for (Node n : nodes) {
+			
+			Drawable.drawCircle(this, n);
+			
 		}
 
 		for (Line l : lines) {
@@ -754,6 +762,17 @@ class Line {
 		this.stops = newStopsArray;
 		this.dists = newDists;
 
+	}
+	
+	// set stop colors to line color
+	public void overrideStopColors() {
+		
+		for (int i = 0; i < stops.length; i++) {
+			
+			stops[i].setColor(color);
+			
+		}
+		
 	}
 
 	public void addTrain(Train train) {
