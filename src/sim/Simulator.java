@@ -23,7 +23,6 @@ import java.util.Set;
  * - better documentation
  * - background geography ??
  * - time-based pathfinding (not just distance-based, but using train arrival times) ??
- * - speed up/slow down simulation ??
  * - simulation statistics (+ graphing ??) ??
  * - zoop to mouse (work out math??) & scaling panning to zoom
  * - map rotation ??
@@ -56,6 +55,10 @@ public class Simulator {
 
 class Sim extends App {
 
+	public static final double TIME_INCREMENT_INCREMENT = 0.2;
+	public static final double MIN_TIME_INCREMENT = 0.0;
+	public static final double MAX_TIME_INCREMENT = 10;
+	
 	private Line[] lines;
 	private Node[] nodes;
 	private ArrayList<ArrayList<ArrayList<Node>>> segmentedNodes;
@@ -233,7 +236,7 @@ class Sim extends App {
 
 			for (int i = 0; i < l.getLength(); i += 8) {
 
-				l.addTrain(new Train(i, l, l.getColor(), timeIncrement * Train.DEFAUlT_TRAIN_SPEED));
+				l.addTrain(new Train(this, i, l, l.getColor(), Train.DEFAUlT_TRAIN_SPEED));
 
 			}
 
@@ -367,6 +370,20 @@ class Sim extends App {
 			Drawable.resetPanZoom();
 
 		}
+		
+		if (keyPressed('1')) {
+			
+			this.timeIncrement -= TIME_INCREMENT_INCREMENT;
+			this.timeIncrement = Drawable.constrict(timeIncrement, MIN_TIME_INCREMENT, MAX_TIME_INCREMENT);
+			System.out.println("Simulation speed " + timeIncrement);
+			
+		} if (keyPressed('2')) {
+			
+			this.timeIncrement += TIME_INCREMENT_INCREMENT;
+			this.timeIncrement = Drawable.constrict(timeIncrement, MIN_TIME_INCREMENT, MAX_TIME_INCREMENT);
+			System.out.println("Simulation speed " + timeIncrement);
+			
+		}
 
 		// draw game objects
 		for (ComplexLine cl : complexLines) {
@@ -429,6 +446,7 @@ class Sim extends App {
 
 	}
 
+	public double getTimeIncrement() { return this.timeIncrement; }
 	public double getGlobalTime() { return this.globalTime; }
 	public String toString() { return "City simulation running for " + globalTime + " ticks."; }
 
@@ -480,9 +498,15 @@ class Drawable {
 
 	public static void constrictPan(Vector2 pan) {
 
-		pan.x = Math.min(Math.max(pan.x, -PAN_X_MINMAX), PAN_X_MINMAX);
-		pan.y = Math.min(Math.max(pan.y, -PAN_Y_MINMAX), PAN_Y_MINMAX);
+		pan.x = constrict(pan.x, -PAN_X_MINMAX, PAN_X_MINMAX);
+		pan.y = constrict(pan.y, -PAN_Y_MINMAX, PAN_Y_MINMAX);
 
+	}
+	
+	public static double constrict(double d, double min, double max) {
+		
+		return Math.min(Math.max(d, min), max);
+		
 	}
 
 	public static void adjustZoom(double z) {
@@ -779,6 +803,7 @@ class Train extends Drawable {
 	public static final int FONT_SIZE_CONST = 11;
 	public static final boolean FONT_CENTERED = true;
 
+	private Sim sim;
 	private Line line;
 	private int stop;
 	private double globalTime;
@@ -786,9 +811,10 @@ class Train extends Drawable {
 	private double stoppedTime;
 	private double speed;
 
-	public Train(int spawnStop, Line line, Vector3 color, double speed) { 
+	public Train(Sim sim, int spawnStop, Line line, Vector3 color, double speed) { 
 
 		super(line.getStop(spawnStop).getPos(), color, DEFAULT_TRAIN_SIZE);
+		this.sim = sim;
 		this.line = line;
 		this.stop = spawnStop;
 		this.speed = speed;
@@ -797,9 +823,10 @@ class Train extends Drawable {
 
 	public void updatePosAlongLine() {
 
+		double modSpeed = speed * sim.getTimeIncrement();
 		int nextStop = (this.stop+1) % line.getLength();
-		globalTime += speed;
-		stopTime += speed;
+		globalTime += modSpeed;
+		stopTime += modSpeed;
 
 		if (stopTime >= this.line.getDist(nextStop)) {
 
@@ -814,7 +841,7 @@ class Train extends Drawable {
 				// wait at station
 			} else {
 
-				stoppedTime += speed;
+				stoppedTime += modSpeed ;
 
 			}
 
