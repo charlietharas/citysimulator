@@ -12,20 +12,18 @@ import java.util.HashMap;
 // TODO reminder for blog post throughout
 
 /* TODO:
- * - clean up code so that the NYC implementation of the simulator lives outside the simulator
- * - set up better logging (Logger class with verbosity levels?)
- * - show the lines on the screen first
- * 	- then work on getting the trains to actually travel along them (but this can be lower priority than pathfinding)
+ * - have trains travel along ComplexLines
  * - pathfinding to enable travelling citizens
  * - transfers to nearby stops built into pathfinding
  * - train capacities and amount of citizens waiting at stops
  * - click-to-spawn citizens + random / proportional citizen generation based on density maps (+ time-of-day?)
+ * - better logging (Logger class with verbosity levels?)
  * - better documentation
+ * - background geography ??
  * - time-based pathfinding (not just distance-based) ??
- * - proper private/protected/public levels for all classes ??
  * - speed up/slow down simulation ??
  * - simulation statistics (+ graphing ??) ??
- * - zoop to mouse (work out math??)
+ * - zoop to mouse (work out math??) & scaling panning to zoom
  * - map rotation ??
  */
 
@@ -46,6 +44,7 @@ class Sim extends App {
 
 	private Line[] lines;
 	private Node[] nodes;
+	private ComplexLine[] complexLines;
 	private int numStops;
 
 	private double globalTime;
@@ -89,7 +88,7 @@ class Sim extends App {
 		Node[] stations = new Node[numStops];
 		double[] stationX = new double[numStops];
 		double[] stationY = new double[numStops];
-		int i = 0;
+		int c = 0;
 
 		HashMap<String, Line> lines = new HashMap<String, Line>();
 
@@ -113,10 +112,10 @@ class Sim extends App {
 				}
 
 				Node stop = new Node(n[1], new Vector2(), Vector3.black);
-				stations[i] = stop;
-				stationX[i] = Double.parseDouble(n[2]);
-				stationY[i] = Double.parseDouble(n[3]);
-				i++;
+				stations[c] = stop;
+				stationX[c] = Double.parseDouble(n[2]);
+				stationY[c] = Double.parseDouble(n[3]);
+				c++;
 
 				for (String str : stopLines) {
 
@@ -128,12 +127,14 @@ class Sim extends App {
 
 		} catch (IOException e) { assert false; }
 
-		normalize(stationX, -this._windowWidthInWorldUnits * MAP_X_SCALE, this._windowWidthInWorldUnits * MAP_X_SCALE);
-		normalize(stationY, -this._windowHeightInWorldUnits * MAP_Y_SCALE, this._windowHeightInWorldUnits * MAP_Y_SCALE);
+		Vector2 xMinMax = getMinMax(stationX);
+		Vector2 yMinMax = getMinMax(stationY);
+		normalize(stationX, -this._windowWidthInWorldUnits * MAP_X_SCALE, this._windowWidthInWorldUnits * MAP_X_SCALE, xMinMax.x, xMinMax.y);
+		normalize(stationY, -this._windowHeightInWorldUnits * MAP_Y_SCALE, this._windowHeightInWorldUnits * MAP_Y_SCALE, yMinMax.x, yMinMax.y);
 
-		for (int j = 0; j < stationX.length; j++) {
+		for (int i = 0; i < stationX.length; i++) {
 
-			stations[j].setPos(stationX[j], stationY[j]);
+			stations[i].setPos(stationX[i], stationY[i]);
 
 		}
 
@@ -161,9 +162,9 @@ class Sim extends App {
 
 		for (Line l : lines.values()) {
 
-			for (int x = 0; x < l.getLength(); x += 8) {
+			for (int i = 0; i < l.getLength(); i += 8) {
 
-				l.addTrain(new Train(x, l, l.getColor(), timeIncrement));
+				l.addTrain(new Train(i, l, l.getColor(), timeIncrement * Train.DEFAUlT_TRAIN_SPEED));
 
 			}
 
@@ -189,12 +190,57 @@ class Sim extends App {
 		System.out.println("Generated lines " + lines.keySet());
 
 		// add lines to simulation array
-		i = 0;
+		c = 0;
 		this.lines = new Line[lines.keySet().size()];
 
 		for (Line l : lines.values()) {
 
-			this.lines[i++] = l;
+			this.lines[c++] = l;
+
+		}
+
+		// generate complex lines for drawing
+		ArrayList<ComplexLine> complexLinesBuilder = new ArrayList<ComplexLine>();
+		try(BufferedReader reader = new BufferedReader(new FileReader("src/sim/lines_geom_data.csv")) ) {
+
+			String line;
+
+			while ((line = reader.readLine()) != null) {
+
+				String[] lineData = line.split(",");
+				Vector3 lineColor = lines.get(lineData[4]).getColor();
+				String[] lineX = lineData[6].split(" ");
+				String[] lineY = lineData[7].split(" ");
+				double[] lineXD = new double[lineX.length];
+				double[] lineYD = new double[lineY.length];
+				Node[] lineNodes = new Node[lineX.length];
+
+				for (int i = 0; i < lineX.length; i++) {
+					
+					lineXD[i] = Double.parseDouble(lineX[i]);
+					lineYD[i] = Double.parseDouble(lineY[i]);
+					
+				}
+								
+				normalize(lineXD, -this._windowWidthInWorldUnits * MAP_X_SCALE, this._windowWidthInWorldUnits * MAP_X_SCALE, xMinMax.x, xMinMax.y);
+				normalize(lineYD, -this._windowHeightInWorldUnits * MAP_Y_SCALE, this._windowHeightInWorldUnits * MAP_Y_SCALE, yMinMax.x, yMinMax.y);
+
+				for (int i = 0; i < lineXD.length; i++) {
+
+					lineNodes[i] = new Node(new Vector2(lineXD[i], lineYD[i]), lineColor);
+
+				}
+
+				complexLinesBuilder.add(new ComplexLine(lineData[1], lineColor, lineNodes, Double.parseDouble(lineData[5])));
+
+			}
+
+		} catch (IOException e) { assert false; }
+		
+		complexLines = new ComplexLine[complexLinesBuilder.size()];
+		for (int i = 0; i < complexLines.length; i++) {
+
+			complexLines[i] = complexLinesBuilder.get(i);
 
 		}
 
@@ -250,13 +296,18 @@ class Sim extends App {
 		}
 
 		// draw game objects
+		for (ComplexLine cl : complexLines) {
+			
+			Drawable.drawComplexLine(this, cl);
+			
+		}
+		
 		for (Line l : lines) {
 
 			Drawable.drawCircle(this, l.getStop(0));
 			for (int i = 1; i < l.getLength(); i++) {
 
 				Drawable.drawCircle(this, l.getStop(i), l.getColor()); // results in unnecessary draw calls, but acceptable
-				Drawable.drawLine(this, l.getStop(i-1), l.getStop(i), l.getColor());
 
 			}
 
@@ -276,9 +327,9 @@ class Sim extends App {
 
 	}
 
-	public static boolean normalize(double[] arr, double min, double max) {
+	public static Vector2 getMinMax(double[] arr) {
 
-		if (arr == null || arr.length == 0) { return false; }
+		if (arr == null || arr.length == 0) { return null; }
 
 		double minInArr = arr[0];
 		double maxInArr = arr[0];
@@ -289,6 +340,12 @@ class Sim extends App {
 
 		}
 
+		return new Vector2(minInArr, maxInArr);
+
+	}
+	
+	public static boolean normalize(double[] arr, double min, double max, double minInArr, double maxInArr) {
+		
 		double maxMinDiff = max - min;
 		double maxMinInArrDiff = maxInArr - minInArr;
 
@@ -301,7 +358,7 @@ class Sim extends App {
 		}
 
 		return true;
-
+		
 	}
 
 	public double getGlobalTime() { return this.globalTime; }
@@ -397,10 +454,10 @@ class Drawable {
 	}
 
 	public static void drawComplexLine(App a, ComplexLine cl, Vector3 col) {
+		
+		for (int i = 1; i < cl.getNodesSize(); i++) {
 
-		for (int i = 1; i < cl.getNodesSize()-1; i++) {
-
-			drawLine(a, cl.getNodes()[i-1], cl.getNodes()[i], col);
+			drawLine(a, cl.getNode(i-1), cl.getNode(i), col);
 
 		}
 
@@ -506,6 +563,7 @@ class ComplexLine extends Drawable {
 	public void setNodes(Node[] nodes) { this.nodes = nodes; }
 	public void setLength(double length) { this.length = length; }
 	public Node[] getNodes() { return this.nodes; }
+	public Node getNode(int i) { return this.nodes[i]; }
 	public int getNodesSize() { return nodes.length; }
 	public double getLength() { return length; }
 	public String toString() { return "ComplexLine id=" + this.getID() + " nodes=" + Arrays.deepToString(nodes); }
@@ -516,9 +574,10 @@ class Train extends Drawable {
 
 	public static final double DEFAULT_TRAIN_SIZE = 1.0;
 	public static final double DEFAULT_STOP_DURATION = 6;
+	public static final double DEFAUlT_TRAIN_SPEED = 1.0;
 	public static final int FONT_SIZE_CONST = 11;
 	public static final boolean FONT_CENTERED = true;
-	
+
 	private Line line;
 	private int stop;
 	private double globalTime;
@@ -566,7 +625,7 @@ class Train extends Drawable {
 		}
 
 	}
-	
+
 	public void setSpeed(double speed) { this.speed = speed; }
 	public Line getLine() { return this.line; }
 	public Node getStop() { return this.line.getStop(this.stop); }
