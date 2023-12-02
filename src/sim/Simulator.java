@@ -136,6 +136,18 @@ class Sim extends App {
 			stations[j].setPos(stationX[j], stationY[j]);
 
 		}
+		
+		try(BufferedReader reader = new BufferedReader(new FileReader("src/sim/lines_geom_data.csv")) ) {
+			
+			String line;
+			
+			while ((line = reader.readLine()) != null) {
+				
+				String[] lineData = line.split(",");
+				
+			}
+			
+		} catch (IOException e) { assert false; }
 
 		// load in configurations for proper stop orders for lines
 		HashMap<String, String> lineConfigs = new HashMap<String, String>();
