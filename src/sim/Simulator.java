@@ -17,14 +17,12 @@ import java.util.Set;
 
 /* TODO:
  * - have trains travel along ComplexLines
- * - pathfinding to enable travelling citizens
- * - transfers to nearby stops built into pathfinding
- * - train capacities and amount of citizens waiting at stops
+ * - implement citizen class (waiting for trains, waiting at stops, moving between stops, travelling with trains, graphical representation, etc.)
  * - click-to-spawn citizens + random / proportional citizen generation based on density maps (+ time-of-day?)
  * - better logging (Logger class with verbosity levels?)
  * - better documentation
  * - background geography ??
- * - time-based pathfinding (not just distance-based) ??
+ * - time-based pathfinding (not just distance-based, but using train arrival times) ??
  * - speed up/slow down simulation ??
  * - simulation statistics (+ graphing ??) ??
  * - zoop to mouse (work out math??) & scaling panning to zoom
@@ -48,7 +46,7 @@ public class Simulator {
 	public static void main(String [] args) {
 
 		// app initialization
-		App app = new Sim(473, 1.2, new Vector2(150, 180), new Vector2(0.45, 0.5), new Vector2(64, 64), Vector3.white, 1024);
+		App app = new Sim(473, 3.0, new Vector3(150, 180, 30), new Vector2(0.9, 1), new Vector2(64, 64), Vector3.white, 1024);
 
 		app.run();
 
@@ -60,8 +58,10 @@ class Sim extends App {
 
 	private Line[] lines;
 	private Node[] nodes;
+	private ArrayList<ArrayList<ArrayList<Node>>> segmentedNodes;
 	private ComplexLine[] complexLines;
 	private int numStops;
+	private int nodeSegmentSize;
 
 	private double globalTime;
 	private double timeIncrement;
@@ -71,13 +71,16 @@ class Sim extends App {
 
 	private Vector2 mouseInitialPos;
 
-	public Sim(int numStops, double timeIncrement, Vector2 WORLD_SIZE, Vector2 MAP_X_Y_SCALE, Vector2 windowTopLeft, Vector3 backgroundColor, int windowHeight) {
+	public Sim(int numStops, double timeIncrement, Vector3 WORLD_SIZE, Vector2 MAP_X_Y_SCALE, Vector2 windowTopLeft, Vector3 backgroundColor, int windowHeight) {
 
+		assert WORLD_SIZE.x % WORLD_SIZE.z <= 0.0001 && WORLD_SIZE.y % WORLD_SIZE.z <= 0.0001;
+		
 		this.numStops = numStops;
 		this.timeIncrement = timeIncrement;
 		setWindowSizeInWorldUnits(WORLD_SIZE.x, WORLD_SIZE.y);
-		this.MAP_X_SCALE = MAP_X_Y_SCALE.x;
-		this.MAP_Y_SCALE = MAP_X_Y_SCALE.y;
+		this.nodeSegmentSize = (int) WORLD_SIZE.z;
+		this.MAP_X_SCALE = MAP_X_Y_SCALE.x * 0.5;
+		this.MAP_Y_SCALE = MAP_X_Y_SCALE.y * 0.5;
 		setWindowTopLeftCornerInPixels((int) windowTopLeft.x, (int) windowTopLeft.y);
 		setWindowCenterInWorldUnits(0.0, 0.0);
 		setWindowHeightInPixels(windowHeight);
@@ -101,7 +104,7 @@ class Sim extends App {
 		Drawable.resetPanZoom();
 
 		// iterate through stations and add stops to appropriate lines
-		Node[] stations = new Node[numStops];
+		nodes = new Node[numStops];
 		double[] stationX = new double[numStops];
 		double[] stationY = new double[numStops];
 		int c = 0;
@@ -128,7 +131,7 @@ class Sim extends App {
 				}
 
 				Node stop = new Node(n[1], new Vector2(), Vector3.black);
-				stations[c] = stop;
+				nodes[c] = stop;
 				stationX[c] = Double.parseDouble(n[2]);
 				stationY[c] = Double.parseDouble(n[3]);
 				c++;
@@ -151,8 +154,60 @@ class Sim extends App {
 
 		for (int i = 0; i < stationX.length; i++) {
 
-			stations[i].setPos(stationX[i], stationY[i]);
+			nodes[i].setPos(stationX[i], stationY[i]);
 
+		}
+		
+		segmentedNodes = new ArrayList<ArrayList<ArrayList<Node>>>();
+		
+		for (int i = 0; i < (int) this._windowWidthInWorldUnits / nodeSegmentSize + 3; i++) {
+			
+			segmentedNodes.add(new ArrayList<ArrayList<Node>>());
+			for (int j = 0; j < (int) this._windowHeightInWorldUnits / nodeSegmentSize + 3; j++) {
+				
+				segmentedNodes.get(i).add(new ArrayList<Node>());
+				
+			}
+			
+		}
+				
+		for (Node n : nodes) { 
+						
+			int xIndex = ((int) (this._windowWidthInWorldUnits/2 + n.getPos().x)/nodeSegmentSize) + 1;
+			int yIndex = ((int) (this._windowHeightInWorldUnits/2 + n.getPos().y)/nodeSegmentSize) + 1;
+			
+			if (xIndex >= 6|| yIndex >= 7) {
+				
+				System.out.println(n);
+				
+			}
+			
+			segmentedNodes.get(xIndex).get(yIndex).add(n);
+			n.setSegmentIndex(xIndex, yIndex);
+			
+		}
+		
+		for (Node n : nodes) {
+			
+			for (int i = -1; i <= 1; i++) {
+				
+				for (int j = -1; j <= 1; j++) {
+					
+					for (Node n2 : segmentedNodes.get(n.getXSegmentIndex()+i).get(n.getYSegmentIndex()+j)) {
+						
+						double dist = Vector2.distanceBetween(n.getPos(), n2.getPos());
+						if (dist <= Node.DEFAULT_TRANSFER_MAX_DIST) {
+							
+							Node.addNeighborPair(n, n2, dist);
+							
+						}
+						
+					}
+					
+				}
+				
+			}
+			
 		}
 
 		// load in configurations for proper stop orders for lines
@@ -170,10 +225,7 @@ class Sim extends App {
 			}
 
 		} catch (IOException e) { assert false; }
-
-		// add stations to simulation array
-		this.nodes = stations;
-
+		
 		// apply line configurations, remove problematic/invalid lines
 		ArrayList<String> linesToRemove = new ArrayList<String>();
 
@@ -261,6 +313,9 @@ class Sim extends App {
 			complexLines[i] = complexLinesBuilder.get(i);
 
 		}
+		
+		System.out.println(nodes[102] + " " + nodes[304]);
+		System.out.println(Node.findPath(nodes[102], nodes[304]));
 		
 	}
 
@@ -527,11 +582,17 @@ class Citizen extends Drawable {
 class Node extends Drawable {
 
 	public static final double DEFAULT_NODE_SIZE = 0.5;
+	public static final double DEFAULT_TRANSFER_WEIGHT = 10;
+	public static final double DEFAULT_TRANSFER_MAX_DIST = 5;
+	public static final double DEFAULT_CONST_STOP_PENALTY = Train.DEFAULT_STOP_DURATION;
 
 	private HashMap<Node, Double> neighbors;
 
 	private double ridership;
 	private double f;
+	
+	private int xSegmentIndex;
+	private int ySegmentIndex;
 
 	public Node(Vector2 pos, Vector3 color) {
 
@@ -611,7 +672,9 @@ class Node extends Drawable {
 
 			if (current.equals(end)) {
 
-				return reconstructPath(from, end);
+				ArrayList<Node> path = reconstructPath(from, end);
+				path.add(end);
+				return path;
 
 			}
 
@@ -646,7 +709,7 @@ class Node extends Drawable {
 	
 	private static double scoreHeuristic(Node a, Node b) {
 		
-		return Vector2.distanceBetween(a.getPos(), b.getPos());
+		return Vector2.distanceBetween(a.getPos(), b.getPos()) + DEFAULT_CONST_STOP_PENALTY;
 		
 	}
 
@@ -669,15 +732,18 @@ class Node extends Drawable {
 			path.set(j, temp);
 
 		}
-
+		
 		return path;
 
 	}
 
 	public void clearNeighbors() { neighbors = new HashMap<Node, Double>(); }
 	public void setRidership(double d) { this.ridership = d; }
+	public void setSegmentIndex(int x, int y) { this.xSegmentIndex = x; this.ySegmentIndex = y; }
 	public HashMap<Node, Double> getNeighbors() { return this.neighbors; }
 	public double getRidership() { return this.ridership; }
+	public int getXSegmentIndex() { return this.xSegmentIndex; }
+	public int getYSegmentIndex() { return this.ySegmentIndex; }
 	public String toString() { return "Node id=" + this.getID() + " pos=" + this.getPos(); }
 
 }
