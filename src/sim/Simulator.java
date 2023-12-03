@@ -226,18 +226,9 @@ class Sim extends App {
 
 		} catch (IOException e) { assert false; }
 
-		// apply line configurations, remove problematic/invalid lines
-		ArrayList<String> linesToRemove = new ArrayList<String>();
-
+		// apply line configurations
 		c = 0;
 		for (Line l : lines.values()) {
-
-			// DEBUG
-			if (!l.getID().equals("E") && !l.getID().equals("5") && !l.getID().equals("L") && !l.getID().equals("R") && !l.getID().equals("F")) {
-
-				linesToRemove.add(l.getID());
-
-			}
 
 			for (int i = 0; i < l.getLength(); i += Line.DEFAULT_TRAIN_SPAWN_SPACING) {
 
@@ -253,18 +244,12 @@ class Sim extends App {
 
 			} catch (Exception e) {
 
-				System.out.println("Deleted invalid line " + l.getID());
-				linesToRemove.add(l.getID());
-
+				System.out.println("Caught invalid line " + l.getID());
+				assert false;
+				
 			}
 
 		}
-
-		for (String s : linesToRemove) {
-
-			lines.remove(s);
-
-		} // TODO remove linesToRemove
 
 		System.out.println("Generated lines " + lines.keySet());
 
@@ -938,9 +923,7 @@ class Citizen extends Drawable {
 	}
 
 	public void followPath() {
-		
-		// System.out.println(this.status); // DEBUG
-		
+				
 		if (pathIndex == 0 && actionTime == 0) {
 
 			setPos(path[0].getNode().getPos());
@@ -1058,9 +1041,6 @@ class Citizen extends Drawable {
 					actionTime = 0;
 						
 				}
-				
-				System.out.println("Current & next line " + currentLine.getID() + " " + nextLine.getID()); // DEBUG
-				System.out.println("Current & next stop " + currentNode.getID() + " " + nextNode.getID());
 
 			} else {
 
@@ -1216,7 +1196,7 @@ class Train extends Drawable {
 
 class Line {
 
-	// TODO improve train spawning
+	// TODO improve train spawning (maybe train frequencies built into savefile?)
 	public static int DEFAULT_TRAIN_SPAWN_SPACING = 4;
 	public static Line WALKING_LINE = new Line("Transfer", null, null, null);
 
