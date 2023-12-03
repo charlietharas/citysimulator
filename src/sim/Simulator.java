@@ -16,11 +16,10 @@ import java.util.Set;
 // TODO reminder for blog post throughout
 
 /* TODO:
- * - incorporate lines into pathfinding (have switching lines incur a penalty) instead of just walking to nearby neighbors
- * 	- this is also necessary for citizens taking the right trains
  * - implement citizen class (waiting for trains, waiting at stops, moving between stops, traveling with trains, graphical representation, etc.)
+ * 	- will need trains (and maybe stops?) to store citizens
  * - click-to-spawn citizens + random / proportional citizen generation based on density maps (?)
- * 	- temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
+ * 	- will need to temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
  * - have trains visually travel along ComplexLines
  * - better logging (Logger class with verbosity levels?)
  * - better documentation
@@ -104,11 +103,13 @@ class Sim extends App {
 		Drawable.resetPanZoom();
 
 		// iterate through stations and add stops to appropriate lines
-		ArrayList<Node> nodesBuilder = new ArrayList<Node>(numStops);
-		ArrayList<Double> stationXBuilder = new ArrayList<Double>(numStops);
-		ArrayList<Double> stationYBuilder = new ArrayList<Double>(numStops);
+		nodes = new Node[numStops];
+		double[] stationX = new double[numStops];
+		double[] stationY = new double[numStops];
+		
 		HashMap<String, Line> lines = new HashMap<String, Line>();
 
+		int c = 0;
 		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/stations_data.csv")) ) {
 
 			String line;
@@ -127,13 +128,15 @@ class Sim extends App {
 					}
 
 				}
+				
+				Node stop = new Node(n[1], new Vector2(), Vector3.black);
+				nodes[c] = stop;
+				stationX[c] = Double.parseDouble(n[2]);
+				stationY[c] = Double.parseDouble(n[3]);
+				c++;
 
 				for (String str : stopLines) {
 
-					Node stop = new Node(n[1], new Vector2(), Vector3.black);
-					nodesBuilder.add(stop);
-					stationXBuilder.add(Double.parseDouble(n[2]));
-					stationYBuilder.add(Double.parseDouble(n[3]));
 					lines.get(str).addStop(stop, 1);
 
 				}
@@ -141,22 +144,6 @@ class Sim extends App {
 			}
 
 		} catch (IOException e) { assert false; }
-
-		double[] stationX = new double[stationXBuilder.size()];
-		double[] stationY = new double[stationX.length];
-		for (int i = 0; i < stationX.length; i++) {
-
-			stationX[i] = stationXBuilder.get(i);
-			stationY[i] = stationYBuilder.get(i);
-
-		}
-		
-		nodes = new Node[nodesBuilder.size()];
-		for (int i = 0; i < nodes.length; i++) {
-
-			nodes[i] = nodesBuilder.get(i);
-
-		}
 
 		// convert real-world geometry data to world units
 		Vector2 xMinMax = getMinMax(stationX);
@@ -204,7 +191,7 @@ class Sim extends App {
 						double dist = Vector2.distanceBetween(n.getPos(), n2.getPos());
 						if (dist <= Node.DEFAULT_TRANSFER_MAX_DIST) {
 
-							Node.addNeighborPair(n, n2, dist * Node.DEFAULT_TRANSFER_WEIGHT + Node.DEFAULT_CONST_TRANSFER_PENALTY);
+							Node.addNeighborPair(n, n2, dist * Node.DEFAULT_TRANSFER_WEIGHT + Node.DEFAULT_CONST_TRANSFER_PENALTY, Line.WALKING_LINE);
 
 						}
 
@@ -266,7 +253,7 @@ class Sim extends App {
 		System.out.println("Generated lines " + lines.keySet());
 
 		// add lines to simulation array
-		int c = 0;
+		c = 0;
 		this.lines = new Line[lines.keySet().size()];
 
 		for (Line l : lines.values()) {
@@ -320,7 +307,7 @@ class Sim extends App {
 
 		}
 
-		// DEBUG
+		// DEBUG		
 		System.out.println(Node.findPath(findNode("Forest Hills", true), findNode("1st A", true)));
 
 		// TODO citizen spawning
@@ -581,13 +568,13 @@ class Drawable {
 
 	}
 
-	public static void drawPath(App a, ArrayList<Node> path) {
+	public static void drawPath(App a, ArrayList<Node.PathWrapper> path) {
 
-		drawCircle(a, path.get(0));
+		drawCircle(a, path.get(0).getNode());
 		for (int i = 1; i < path.size(); i++) {
 
-			drawCircle(a, path.get(i), Vector3.red);
-			drawLine(a, path.get(i-1), path.get(i), Vector3.red);
+			drawCircle(a, path.get(i).getNode(), Vector3.red);
+			drawLine(a, path.get(i-1).getNode(), path.get(i).getNode(), Vector3.red);
 
 		}
 
@@ -649,7 +636,7 @@ class Node extends Drawable {
 	public static final double DEFAULT_CONST_STOP_PENALTY = Train.DEFAULT_STOP_DURATION * 2;
 	public static final double DEFAULT_CONST_TRANSFER_PENALTY = DEFAULT_CONST_STOP_PENALTY * 2;
 
-	private HashMap<Node, Double> neighbors;
+	private HashMap<PathWrapper, Double> neighbors;
 
 	private double ridership;
 	private double score;
@@ -689,28 +676,17 @@ class Node extends Drawable {
 
 	}
 
-	public void addNeighbor(Node n, double d) {
+	public void addNeighbor(Node n, double d, Line l) {
 
-		neighbors.put(n, d);
-
-	}
-
-	public void addNeighbors(Node[] n, double[] d) {
-
-		assert n != null && d != null && n.length == d.length;
-
-		for (int i = 0; i < n.length; i++) {
-
-			neighbors.put(n[i], d[i]);
-
-		}
+		if (n == this) { return; }
+		neighbors.put(new PathWrapper(n, l), d);
 
 	}
 
-	public static void addNeighborPair(Node a, Node b, double dist) {
+	public static void addNeighborPair(Node a, Node b, double dist, Line l) {
 
-		a.addNeighbor(b, dist);
-		b.addNeighbor(a, dist);
+		a.addNeighbor(b, dist, l);
+		b.addNeighbor(a, dist, l);
 
 	}
 
@@ -718,11 +694,11 @@ class Node extends Drawable {
 	public double getScore() { return this.score; }
 	public void setScore(double score) { this.score = score; }
 
-	public static ArrayList<Node> findPath(Node start, Node end) {
+	public static ArrayList<PathWrapper> findPath(Node start, Node end) {
 
 		PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingDouble(Node::getScore));
 		Set<Node> visited = new HashSet<>();
-		HashMap<Node, Node> from = new HashMap<Node, Node>();
+		HashMap<Node, PathWrapper> from = new HashMap<Node, PathWrapper>();
 		HashMap<Node, Double> score = new HashMap<Node, Double>();
 
 		score.put(start, 0.0);
@@ -736,24 +712,33 @@ class Node extends Drawable {
 			// path found
 			if (current.equals(end)) {
 
-				ArrayList<Node> path = reconstructPath(from, end); // generate lines here as well
-				path.add(end);
+				ArrayList<PathWrapper> path = reconstructPath(from, end);
+				path.add(new PathWrapper(end, path.get(path.size()-1).getLine()));
 				return path;
 
 			}
 
 			visited.add(current);
 
-			for (Node neighbor : current.getNeighbors().keySet()) {
+			for (PathWrapper pathWrapper : current.getNeighbors().keySet()) {
 
+				Node neighbor = pathWrapper.getNode();
+				
 				if (visited.contains(neighbor)) { continue; }
 
-				double tempScore = score.get(current) + current.getNeighbors().get(neighbor);
+				Line line = pathWrapper.getLine();
+				double aggregateScore = score.get(current) + current.getNeighbors().get(pathWrapper);
 
-				if (!queue.contains(neighbor) || tempScore < score.get(neighbor)) {
+				if (from.get(neighbor) != null && !from.get(neighbor).getLine().equals(line)) {
+					
+					aggregateScore += Node.DEFAULT_CONST_TRANSFER_PENALTY;
+					
+				}
+				
+				if (!queue.contains(neighbor) || aggregateScore < score.get(neighbor)) {
 
-					from.put(neighbor, current); // store current line here
-					score.put(neighbor, tempScore);
+					from.put(neighbor, new PathWrapper(current, line));
+					score.put(neighbor, aggregateScore);
 					neighbor.setScore(score.get(neighbor) + scoreHeuristic(neighbor, end));
 
 					if (!queue.contains(neighbor)) {
@@ -777,21 +762,22 @@ class Node extends Drawable {
 
 	}
 
-	private static ArrayList<Node> reconstructPath(HashMap<Node, Node> from, Node current) {
-
-		ArrayList<Node> path = new ArrayList<>();
+	private static ArrayList<PathWrapper> reconstructPath(HashMap<Node, PathWrapper> from, Node current) {
+		
+		ArrayList<PathWrapper> path = new ArrayList<>();
 
 		while (from.containsKey(current)) {
 
-			current = from.get(current);
-			path.add(current);
+			PathWrapper currentPW = from.get(current);
+			current = currentPW.getNode();
+			path.add(new PathWrapper(current, currentPW.getLine()));
 
 		}
 
 		for (int i = 0; i < path.size()/2; i++) {
 
 			int j = path.size()-1-i;
-			Node temp = path.get(i);
+			PathWrapper temp = path.get(i);
 			path.set(i, path.get(j));
 			path.set(j, temp);
 
@@ -801,14 +787,32 @@ class Node extends Drawable {
 
 	}
 
-	public void clearNeighbors() { neighbors = new HashMap<Node, Double>(); }
+	public void clearNeighbors() { neighbors = new HashMap<PathWrapper, Double>(); }
 	public void setRidership(double d) { this.ridership = d; }
 	public void setSegmentIndex(int x, int y) { this.xSegmentIndex = x; this.ySegmentIndex = y; }
-	public HashMap<Node, Double> getNeighbors() { return this.neighbors; }
+	public HashMap<PathWrapper, Double> getNeighbors() { return this.neighbors; }
 	public double getRidership() { return this.ridership; }
 	public int getXSegmentIndex() { return this.xSegmentIndex; }
 	public int getYSegmentIndex() { return this.ySegmentIndex; }
 	public String toString() { return "Node id=" + this.getID() + " pos=" + this.getPos(); }
+	
+	static class PathWrapper {
+		
+		private Node node;
+		private Line line;
+		
+		public PathWrapper(Node node, Line line) {
+			
+			this.node = node;
+			this.line = line;
+			
+		}
+		
+		public Node getNode() { return this.node; }
+		public Line getLine() { return this.line; }
+		public String toString() { return "PathWrapper node=" + node + " line=" + line.getID(); }
+		
+	}
 
 }
 
@@ -909,6 +913,7 @@ class Train extends Drawable {
 class Line {
 
 	public static int DEFAULT_TRAIN_SPAWN_SPACING = 8;
+	public static Line WALKING_LINE = new Line("Transfer", null, null, null);
 
 	private String id;
 	private Vector3 color;
@@ -985,7 +990,7 @@ class Line {
 
 			double dist = Vector2.distanceBetween(newStops.get(i).getPos(), newStops.get(i+1).getPos());
 			newDists[i+1] = dist;
-			Node.addNeighborPair(newStops.get(i), newStops.get(i+1), dist + Node.DEFAULT_CONST_STOP_PENALTY);
+			Node.addNeighborPair(newStops.get(i), newStops.get(i+1), dist + Node.DEFAULT_CONST_STOP_PENALTY, this);
 
 		}
 
@@ -1040,7 +1045,7 @@ class Line {
 	public Train[] getTrains() { return this.trains; }
 	public Vector3 getColor() { return this.color; }
 	public String getID() { return this.id; }
-	public String toString() { return "Line id= " + this.id + " stops=" + Arrays.toString(this.stops); }
+	public String toString() { return "Line id= " + this.id; }
 
 }
 
