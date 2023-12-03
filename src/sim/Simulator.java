@@ -28,24 +28,12 @@ import java.util.Set;
  * - map rotation ??
  */
 
-/* TODO procedure for implementing pathfinding:
- * - use a HashMap to have each node store nearest nodes on line as neighbors w/ dists
- * 	- (at least eventually) this may require/recommend reworking the distance system. 
- * 	  	maybe instead of the current system, each node stores neighbors, and lines are just records of nodes that use neighbor hashmaps to get dists for trains??
- * - have each node also store nearest nodes by distance as neighbors (for transfers)
- * 	- requires parameter K_NEAREST and a way to generate this efficiently (ideally not O(n^2))
- * 		initial impulse for this is to just iterate over all nodes, get the smallest 5 by distance (this is the O(n^2) implementation)
- * 		can also segment the entire grid first and make subarrays?? but then it still might be slow.. so maybe do the first and then write notes about the second
- * - then implement a pretty basic pathfinding algorithm to get from node to node
- * - then implement waiting and pickup/offload mechanics for trains/citizens
- */
-
 public class Simulator {
 
 	public static void main(String [] args) {
 
 		// app initialization
-		App app = new Sim(473, 3.0, new Vector3(150, 180, 30), new Vector2(0.9, 1), new Vector2(64, 64), Vector3.white, 1024);
+		App app = new Sim(473, 2.0, new Vector3(0.2, 0.0, 10.0), new Vector3(150, 180, 30), new Vector2(0.9, 1), new Vector2(64, 64), Vector3.white, 1024);
 
 		app.run();
 
@@ -54,10 +42,6 @@ public class Simulator {
 }
 
 class Sim extends App {
-
-	public static final double TIME_INCREMENT_INCREMENT = 0.2;
-	public static final double MIN_TIME_INCREMENT = 0.0;
-	public static final double MAX_TIME_INCREMENT = 10;
 	
 	private Line[] lines;
 	private Node[] nodes;
@@ -68,18 +52,24 @@ class Sim extends App {
 
 	private double globalTime;
 	private double timeIncrement;
+	private double TIME_INCREMENT_INCREMENT;
+	private double MIN_TIME_INCREMENT;
+	private double MAX_TIME_INCREMENT;
 
 	private double MAP_X_SCALE;
 	private double MAP_Y_SCALE;
 
 	private Vector2 mouseInitialPos;
 
-	public Sim(int numStops, double timeIncrement, Vector3 WORLD_SIZE, Vector2 MAP_X_Y_SCALE, Vector2 windowTopLeft, Vector3 backgroundColor, int windowHeight) {
+	public Sim(int numStops, double timeIncrement, Vector3 INCREMENT_SETTINGS, Vector3 WORLD_SIZE, Vector2 MAP_X_Y_SCALE, Vector2 windowTopLeft, Vector3 backgroundColor, int windowHeight) {
 
 		assert WORLD_SIZE.x % WORLD_SIZE.z <= 0.0001 && WORLD_SIZE.y % WORLD_SIZE.z <= 0.0001;
 		
 		this.numStops = numStops;
 		this.timeIncrement = timeIncrement;
+		this.TIME_INCREMENT_INCREMENT = INCREMENT_SETTINGS.x;
+		this.MIN_TIME_INCREMENT = INCREMENT_SETTINGS.y;
+		this.MAX_TIME_INCREMENT = INCREMENT_SETTINGS.z;
 		setWindowSizeInWorldUnits(WORLD_SIZE.x, WORLD_SIZE.y);
 		this.nodeSegmentSize = (int) WORLD_SIZE.z;
 		this.MAP_X_SCALE = MAP_X_Y_SCALE.x * 0.5;
@@ -179,12 +169,6 @@ class Sim extends App {
 			int xIndex = ((int) (this._windowWidthInWorldUnits/2 + n.getPos().x)/nodeSegmentSize) + 1;
 			int yIndex = ((int) (this._windowHeightInWorldUnits/2 + n.getPos().y)/nodeSegmentSize) + 1;
 			
-			if (xIndex >= 6|| yIndex >= 7) {
-				
-				System.out.println(n);
-				
-			}
-			
 			segmentedNodes.get(xIndex).get(yIndex).add(n);
 			n.setSegmentIndex(xIndex, yIndex);
 			
@@ -201,7 +185,7 @@ class Sim extends App {
 						double dist = Vector2.distanceBetween(n.getPos(), n2.getPos());
 						if (dist <= Node.DEFAULT_TRANSFER_MAX_DIST) {
 							
-							Node.addNeighborPair(n, n2, dist);
+							Node.addNeighborPair(n, n2, dist * Node.DEFAULT_TRANSFER_WEIGHT + Node.DEFAULT_CONST_TRANSFER_PENALTY);
 							
 						}
 						
@@ -234,7 +218,7 @@ class Sim extends App {
 
 		for (Line l : lines.values()) {
 
-			for (int i = 0; i < l.getLength(); i += 8) {
+			for (int i = 0; i < l.getLength(); i += Line.DEFAULT_TRAIN_SPAWN_SPACING) {
 
 				l.addTrain(new Train(this, i, l, l.getColor(), Train.DEFAUlT_TRAIN_SPEED));
 
@@ -317,8 +301,7 @@ class Sim extends App {
 
 		}
 		
-		System.out.println(nodes[102] + " " + nodes[304]);
-		System.out.println(Node.findPath(nodes[102], nodes[304]));
+		System.out.println(Node.findPath(nodes[290], nodes[0]));
 		
 	}
 
@@ -375,13 +358,11 @@ class Sim extends App {
 			
 			this.timeIncrement -= TIME_INCREMENT_INCREMENT;
 			this.timeIncrement = Drawable.constrict(timeIncrement, MIN_TIME_INCREMENT, MAX_TIME_INCREMENT);
-			System.out.println("Simulation speed " + timeIncrement);
 			
 		} if (keyPressed('2')) {
 			
 			this.timeIncrement += TIME_INCREMENT_INCREMENT;
 			this.timeIncrement = Drawable.constrict(timeIncrement, MIN_TIME_INCREMENT, MAX_TIME_INCREMENT);
-			System.out.println("Simulation speed " + timeIncrement);
 			
 		}
 
@@ -409,6 +390,8 @@ class Sim extends App {
 			}
 
 		}
+		
+		Drawable.drawPath(this, Node.findPath(nodes[0], nodes[290]));
 
 	}
 
@@ -554,6 +537,18 @@ class Drawable {
 		}
 
 	}
+	
+	public static void drawPath(App a, ArrayList<Node> path) {
+		
+		drawCircle(a, path.get(0));
+		for (int i = 1; i < path.size(); i++) {
+			
+			drawCircle(a, path.get(i), Vector3.red);
+			drawLine(a, path.get(i-1), path.get(i), Vector3.red);
+			
+		}
+		
+	}
 
 	public static void drawString(App a, Drawable d, String str, int size, boolean centered) {
 
@@ -607,8 +602,9 @@ class Node extends Drawable {
 
 	public static final double DEFAULT_NODE_SIZE = 0.5;
 	public static final double DEFAULT_TRANSFER_WEIGHT = 10;
-	public static final double DEFAULT_TRANSFER_MAX_DIST = 5;
-	public static final double DEFAULT_CONST_STOP_PENALTY = Train.DEFAULT_STOP_DURATION;
+	public static final double DEFAULT_TRANSFER_MAX_DIST = 3;
+	public static final double DEFAULT_CONST_STOP_PENALTY = Train.DEFAULT_STOP_DURATION * 2;
+	public static final double DEFAULT_CONST_TRANSFER_PENALTY = DEFAULT_CONST_STOP_PENALTY * 2;
 
 	private HashMap<Node, Double> neighbors;
 
@@ -733,7 +729,7 @@ class Node extends Drawable {
 	
 	private static double scoreHeuristic(Node a, Node b) {
 		
-		return Vector2.distanceBetween(a.getPos(), b.getPos()) + DEFAULT_CONST_STOP_PENALTY;
+		return Vector2.distanceBetween(a.getPos(), b.getPos());
 		
 	}
 
@@ -867,6 +863,8 @@ class Train extends Drawable {
 }
 
 class Line {
+	
+	public static int DEFAULT_TRAIN_SPAWN_SPACING = 8;
 
 	private String id;
 	private Vector3 color;
@@ -943,7 +941,7 @@ class Line {
 
 			double dist = Vector2.distanceBetween(newStops.get(i).getPos(), newStops.get(i+1).getPos());
 			newDists[i+1] = dist;
-			Node.addNeighborPair(newStops.get(i), newStops.get(i+1), dist);
+			Node.addNeighborPair(newStops.get(i), newStops.get(i+1), dist + Node.DEFAULT_CONST_STOP_PENALTY);
 
 		}
 
