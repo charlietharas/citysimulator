@@ -16,16 +16,19 @@ import java.util.Set;
 // TODO reminder for blog post throughout
 
 /* TODO:
- * - have trains travel along ComplexLines
- * - implement citizen class (waiting for trains, waiting at stops, moving between stops, travelling with trains, graphical representation, etc.)
- * - click-to-spawn citizens + random / proportional citizen generation based on density maps (+ time-of-day?)
+ * - incorporate lines into pathfinding (have switching lines incur a penalty) instead of just walking to nearby neighbors
+ * 	- this is also necessary for citizens taking the right trains
+ * - implement citizen class (waiting for trains, waiting at stops, moving between stops, traveling with trains, graphical representation, etc.)
+ * - click-to-spawn citizens + random / proportional citizen generation based on density maps (?)
+ * 	- temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
+ * - have trains visually travel along ComplexLines
  * - better logging (Logger class with verbosity levels?)
  * - better documentation
- * - background geography ??
- * - time-based pathfinding (not just distance-based, but using train arrival times) ??
- * - simulation statistics (+ graphing ??) ??
- * - zoop to mouse (work out math??) & scaling panning to zoom
+ * - zoom to mouse (work out math??) & scaling panning to zoom
  * - map rotation ??
+ * - background geography ??
+ * - simulation statistics (+ graphing ??) ??
+ * - time-based pathfinding (not just distance-based, but using train arrival times) ??
  */
 
 public class Simulator {
@@ -42,13 +45,17 @@ public class Simulator {
 }
 
 class Sim extends App {
-	
+
+	public static final int DEFAULT_CITIZEN_ALLOCATION = 10000;
+
 	private Line[] lines;
 	private Node[] nodes;
 	private ArrayList<ArrayList<ArrayList<Node>>> segmentedNodes;
 	private ComplexLine[] complexLines;
 	private int numStops;
 	private int nodeSegmentSize;
+
+	private ArrayList<Citizen> citizens;
 
 	private double globalTime;
 	private double timeIncrement;
@@ -64,7 +71,7 @@ class Sim extends App {
 	public Sim(int numStops, double timeIncrement, Vector3 INCREMENT_SETTINGS, Vector3 WORLD_SIZE, Vector2 MAP_X_Y_SCALE, Vector2 windowTopLeft, Vector3 backgroundColor, int windowHeight) {
 
 		assert WORLD_SIZE.x % WORLD_SIZE.z <= 0.0001 && WORLD_SIZE.y % WORLD_SIZE.z <= 0.0001;
-		
+
 		this.numStops = numStops;
 		this.timeIncrement = timeIncrement;
 		this.TIME_INCREMENT_INCREMENT = INCREMENT_SETTINGS.x;
@@ -97,11 +104,9 @@ class Sim extends App {
 		Drawable.resetPanZoom();
 
 		// iterate through stations and add stops to appropriate lines
-		nodes = new Node[numStops];
-		double[] stationX = new double[numStops];
-		double[] stationY = new double[numStops];
-		int c = 0;
-
+		ArrayList<Node> nodesBuilder = new ArrayList<Node>(numStops);
+		ArrayList<Double> stationXBuilder = new ArrayList<Double>(numStops);
+		ArrayList<Double> stationYBuilder = new ArrayList<Double>(numStops);
 		HashMap<String, Line> lines = new HashMap<String, Line>();
 
 		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/stations_data.csv")) ) {
@@ -123,14 +128,12 @@ class Sim extends App {
 
 				}
 
-				Node stop = new Node(n[1], new Vector2(), Vector3.black);
-				nodes[c] = stop;
-				stationX[c] = Double.parseDouble(n[2]);
-				stationY[c] = Double.parseDouble(n[3]);
-				c++;
-
 				for (String str : stopLines) {
 
+					Node stop = new Node(n[1], new Vector2(), Vector3.black);
+					nodesBuilder.add(stop);
+					stationXBuilder.add(Double.parseDouble(n[2]));
+					stationYBuilder.add(Double.parseDouble(n[3]));
 					lines.get(str).addStop(stop, 1);
 
 				}
@@ -139,62 +142,78 @@ class Sim extends App {
 
 		} catch (IOException e) { assert false; }
 
+		double[] stationX = new double[stationXBuilder.size()];
+		double[] stationY = new double[stationX.length];
+		for (int i = 0; i < stationX.length; i++) {
+
+			stationX[i] = stationXBuilder.get(i);
+			stationY[i] = stationYBuilder.get(i);
+
+		}
+		
+		nodes = new Node[nodesBuilder.size()];
+		for (int i = 0; i < nodes.length; i++) {
+
+			nodes[i] = nodesBuilder.get(i);
+
+		}
+
 		// convert real-world geometry data to world units
 		Vector2 xMinMax = getMinMax(stationX);
 		Vector2 yMinMax = getMinMax(stationY);
 		normalize(stationX, -this._windowWidthInWorldUnits * MAP_X_SCALE, this._windowWidthInWorldUnits * MAP_X_SCALE, xMinMax.x, xMinMax.y);
 		normalize(stationY, -this._windowHeightInWorldUnits * MAP_Y_SCALE, this._windowHeightInWorldUnits * MAP_Y_SCALE, yMinMax.x, yMinMax.y);
-
+		
 		for (int i = 0; i < stationX.length; i++) {
 
 			nodes[i].setPos(stationX[i], stationY[i]);
 
 		}
-		
+
 		segmentedNodes = new ArrayList<ArrayList<ArrayList<Node>>>();
-		
+
 		for (int i = 0; i < (int) this._windowWidthInWorldUnits / nodeSegmentSize + 3; i++) {
-			
+
 			segmentedNodes.add(new ArrayList<ArrayList<Node>>());
 			for (int j = 0; j < (int) this._windowHeightInWorldUnits / nodeSegmentSize + 3; j++) {
-				
+
 				segmentedNodes.get(i).add(new ArrayList<Node>());
-				
+
 			}
-			
+
 		}
-				
+
 		for (Node n : nodes) { 
-						
+
 			int xIndex = ((int) (this._windowWidthInWorldUnits/2 + n.getPos().x)/nodeSegmentSize) + 1;
 			int yIndex = ((int) (this._windowHeightInWorldUnits/2 + n.getPos().y)/nodeSegmentSize) + 1;
-			
+
 			segmentedNodes.get(xIndex).get(yIndex).add(n);
 			n.setSegmentIndex(xIndex, yIndex);
-			
+
 		}
-		
+
 		for (Node n : nodes) {
-			
+
 			for (int i = -1; i <= 1; i++) {
-				
+
 				for (int j = -1; j <= 1; j++) {
-					
+
 					for (Node n2 : segmentedNodes.get(n.getXSegmentIndex()+i).get(n.getYSegmentIndex()+j)) {
-						
+
 						double dist = Vector2.distanceBetween(n.getPos(), n2.getPos());
 						if (dist <= Node.DEFAULT_TRANSFER_MAX_DIST) {
-							
+
 							Node.addNeighborPair(n, n2, dist * Node.DEFAULT_TRANSFER_WEIGHT + Node.DEFAULT_CONST_TRANSFER_PENALTY);
-							
+
 						}
-						
+
 					}
-					
+
 				}
-				
+
 			}
-			
+
 		}
 
 		// load in configurations for proper stop orders for lines
@@ -212,7 +231,7 @@ class Sim extends App {
 			}
 
 		} catch (IOException e) { assert false; }
-		
+
 		// apply line configurations, remove problematic/invalid lines
 		ArrayList<String> linesToRemove = new ArrayList<String>();
 
@@ -247,7 +266,7 @@ class Sim extends App {
 		System.out.println("Generated lines " + lines.keySet());
 
 		// add lines to simulation array
-		c = 0;
+		int c = 0;
 		this.lines = new Line[lines.keySet().size()];
 
 		for (Line l : lines.values()) {
@@ -300,9 +319,13 @@ class Sim extends App {
 			complexLines[i] = complexLinesBuilder.get(i);
 
 		}
-		
-		System.out.println(Node.findPath(nodes[290], nodes[0]));
-		
+
+		// DEBUG
+		System.out.println(Node.findPath(findNode("Forest Hills", true), findNode("1st A", true)));
+
+		// TODO citizen spawning
+		citizens = new ArrayList<Citizen>(Sim.DEFAULT_CITIZEN_ALLOCATION);
+
 	}
 
 	void loop() {
@@ -353,17 +376,17 @@ class Sim extends App {
 			Drawable.resetPanZoom();
 
 		}
-		
+
 		if (keyPressed('1')) {
-			
+
 			this.timeIncrement -= TIME_INCREMENT_INCREMENT;
 			this.timeIncrement = Drawable.constrict(timeIncrement, MIN_TIME_INCREMENT, MAX_TIME_INCREMENT);
-			
+
 		} if (keyPressed('2')) {
-			
+
 			this.timeIncrement += TIME_INCREMENT_INCREMENT;
 			this.timeIncrement = Drawable.constrict(timeIncrement, MIN_TIME_INCREMENT, MAX_TIME_INCREMENT);
-			
+
 		}
 
 		// draw game objects
@@ -373,14 +396,14 @@ class Sim extends App {
 
 		}
 
-		for (Node n : nodes) {
-
-			Drawable.drawCircle(this, n);
-
-		}
-
 		for (Line l : lines) {
 
+			for (Node n : l.getStops()) {
+				
+				Drawable.drawCircle(this, n); // XXX results in excess draw calls, done because some black (and therefore unassigned) nodes are being stored, need to clear those
+				
+			}
+			
 			for (Train t : l.getTrains()) {
 
 				t.updatePosAlongLine();
@@ -390,8 +413,28 @@ class Sim extends App {
 			}
 
 		}
-		
-		Drawable.drawPath(this, Node.findPath(nodes[0], nodes[290]));
+
+		Drawable.drawPath(this, Node.findPath(findNode("Forest Hills", true), findNode("1st A", true)));
+
+	}
+
+	public Node findNode(String id, boolean contains) {
+
+		for (Node n : nodes) {
+
+			if (contains) { 
+
+				if (n.getID().contains(id)) { return n; }
+
+			} else {
+
+				if (n.getID().equals(id)) { return n; }
+
+			}
+
+		}
+
+		return null;
 
 	}
 
@@ -485,11 +528,11 @@ class Drawable {
 		pan.y = constrict(pan.y, -PAN_Y_MINMAX, PAN_Y_MINMAX);
 
 	}
-	
+
 	public static double constrict(double d, double min, double max) {
-		
+
 		return Math.min(Math.max(d, min), max);
-		
+
 	}
 
 	public static void adjustZoom(double z) {
@@ -537,17 +580,17 @@ class Drawable {
 		}
 
 	}
-	
+
 	public static void drawPath(App a, ArrayList<Node> path) {
-		
+
 		drawCircle(a, path.get(0));
 		for (int i = 1; i < path.size(); i++) {
-			
+
 			drawCircle(a, path.get(i), Vector3.red);
 			drawLine(a, path.get(i-1), path.get(i), Vector3.red);
-			
+
 		}
-		
+
 	}
 
 	public static void drawString(App a, Drawable d, String str, int size, boolean centered) {
@@ -609,8 +652,8 @@ class Node extends Drawable {
 	private HashMap<Node, Double> neighbors;
 
 	private double ridership;
-	private double f;
-	
+	private double score;
+
 	private int xSegmentIndex;
 	private int ySegmentIndex;
 
@@ -618,7 +661,7 @@ class Node extends Drawable {
 
 		super(pos, color, DEFAULT_NODE_SIZE);
 		clearNeighbors();
-		this.f = 0; this.ridership = 0;
+		this.score = 0; this.ridership = 0;
 
 	}
 
@@ -626,15 +669,15 @@ class Node extends Drawable {
 
 		super(pos, color, size);
 		clearNeighbors();
-		this.f = 0; this.ridership = 0;
-		
+		this.score = 0; this.ridership = 0;
+
 	}
 
 	public Node(String id, Vector2 pos, Vector3 color) {
 
 		super(id, pos, color, DEFAULT_NODE_SIZE);
 		clearNeighbors();
-		this.f = 0; this.ridership = 0;
+		this.score = 0; this.ridership = 0;
 
 	}
 
@@ -642,7 +685,7 @@ class Node extends Drawable {
 
 		super(id, pos, color, size);
 		clearNeighbors();
-		this.f = 0; this.ridership = 0;
+		this.score = 0; this.ridership = 0;
 
 	}
 
@@ -672,8 +715,8 @@ class Node extends Drawable {
 	}
 
 	// pathfinding
-	public double getScore() { return this.f; }
-	public void setScore(double f) { this.f = f; }
+	public double getScore() { return this.score; }
+	public void setScore(double score) { this.score = score; }
 
 	public static ArrayList<Node> findPath(Node start, Node end) {
 
@@ -690,9 +733,10 @@ class Node extends Drawable {
 
 			Node current = queue.poll();
 
+			// path found
 			if (current.equals(end)) {
 
-				ArrayList<Node> path = reconstructPath(from, end);
+				ArrayList<Node> path = reconstructPath(from, end); // generate lines here as well
 				path.add(end);
 				return path;
 
@@ -707,30 +751,30 @@ class Node extends Drawable {
 				double tempScore = score.get(current) + current.getNeighbors().get(neighbor);
 
 				if (!queue.contains(neighbor) || tempScore < score.get(neighbor)) {
-					
-					from.put(neighbor, current);
+
+					from.put(neighbor, current); // store current line here
 					score.put(neighbor, tempScore);
 					neighbor.setScore(score.get(neighbor) + scoreHeuristic(neighbor, end));
 
 					if (!queue.contains(neighbor)) {
-						
+
 						queue.add(neighbor);
-					
+
 					}
-				
+
 				}
-			
+
 			}
 		}
 
 		return null; // no path
 
 	}
-	
+
 	private static double scoreHeuristic(Node a, Node b) {
-		
+
 		return Vector2.distanceBetween(a.getPos(), b.getPos());
-		
+
 	}
 
 	private static ArrayList<Node> reconstructPath(HashMap<Node, Node> from, Node current) {
@@ -752,7 +796,7 @@ class Node extends Drawable {
 			path.set(j, temp);
 
 		}
-		
+
 		return path;
 
 	}
@@ -863,7 +907,7 @@ class Train extends Drawable {
 }
 
 class Line {
-	
+
 	public static int DEFAULT_TRAIN_SPAWN_SPACING = 8;
 
 	private String id;
