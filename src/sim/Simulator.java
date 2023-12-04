@@ -323,6 +323,13 @@ class Sim extends App {
 		}
 
 		citizens = new ArrayList<Citizen>(Sim.DEFAULT_CITIZEN_ALLOCATION);
+
+		// debug
+		for (int i = 0; i < 1000; i++) {
+			
+			citizens.add(new Citizen(this, Node.findPath(sample(nodes, ridershipTotal), sample(nodes, ridershipTotal))));
+			
+		}
 		
 	}
 
@@ -401,19 +408,22 @@ class Sim extends App {
 			
 		}
 		
-		// XXX these might not work when timeInterval is adjusted
+		// XXX these are not working when timeInterval is adjusted
 		// despawn citizens
 		if (globalTime % Citizen.DESPAWN_INTERVAL <= 0.0001) {
 			
 			for (int i = 0; i < citizens.size(); i++) {
 				
+				// TODO update garbage collection mechanic (mostly higher threshold)
+				/* debug
 				if (citizens.get(i).getGlobalTime() >= Citizen.MAX_TIME_ALIVE) {
 					
-					citizens.get(i).getCurrentNode().removeCitizen();
+					citizens.get(i).getCurrentNode().removeCitizen(); // this may cause excessive removals
 					citizens.remove(i);
 					continue;
 					
 				}
+				*/
 				
 				if (citizens.get(i).getStatus().equals(TransitStatus.DESPAWN)) {
 					
@@ -425,6 +435,7 @@ class Sim extends App {
 			
 		}
 		
+		/* debug temporarily removed (also, consider lowering the spawn interval)
 		// spawn citizens
 		if (globalTime % Citizen.SPAWN_INTERVAL <= 0.0001) {
 			
@@ -435,6 +446,7 @@ class Sim extends App {
 			}
 			
 		}
+		*/
 
 		// draw game objects
 		for (ComplexLine cl : complexLines) {
@@ -452,13 +464,15 @@ class Sim extends App {
 		for (Citizen c : citizens) {
 
 			c.followPath();
-			if (c.getStatus().equals(TransitStatus.WALKING)) {
+			if (true && c.getStatus().equals(TransitStatus.WALKING)) { // debug
 
 				Drawable.drawCircle(this, c);
 
 			}
 
 		}
+		
+		System.out.println(citizens.size()); // debug
 
 		for (Line l : lines) {
 
@@ -555,7 +569,7 @@ class Sim extends App {
 
 class Drawable {
 
-	// considering adding methods to allow these to be changed
+	// TODO considering adding methods to allow these to be changed
 	final static double ZOOM_CONST = 0.05;
 	final static double ZOOM_MAX = 4;
 	final static double ZOOM_MIN = 0.1;
@@ -792,7 +806,7 @@ class Node extends CitizenContainer {
 	public double getScore() { return this.score; }
 	public void setScore(double score) { this.score = score; }
 
-	// line-based pathfinding still not working 100% as-intended
+	// XXX line-based path generation still not working 100% as-intended
 	public static ArrayList<PathWrapper> findPath(Node start, Node end) {
 
 		PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingDouble(Node::getScore));
@@ -1008,8 +1022,8 @@ class Citizen extends Drawable {
 
 	}
 
-	// XXX A LOT OF CITIZENS ARE DEFINITELY GETTING STUCK
-	// XXX CITIZEN TRACKING FOR NODES/TRAINS IS OFF
+	// XXX MAJORITY OF CITIZENS (~85%) ARE GETTING STUCK!!! NEED TO ANALYZE!
+	// XXX CITIZEN TRACKING FOR NODES/TRAINS MAY BE BROKEN
 	public void followPath() {
 				
 		if (status == TransitStatus.DESPAWN) { return; }
@@ -1026,7 +1040,7 @@ class Citizen extends Drawable {
 
 		if (pathIndex == path.length) {
 
-			// this.currentNode.removeCitizen(); //. ?
+			this.currentNode.removeCitizen(); // XXX this may cause excessive removes
 			status = TransitStatus.DESPAWN;
 			return;
 
@@ -1038,7 +1052,7 @@ class Citizen extends Drawable {
 		switch (this.status) {
 
 		case WALKING:
-			if (walkTime <= 0.0001) {
+			if (walkTime == 0) {
 				
 				walkDist = Vector2.distanceBetween(this.getPos(), nextNode.getPos());
 				
@@ -1055,6 +1069,7 @@ class Citizen extends Drawable {
 				} else {
 
 					status = TransitStatus.WAITING_AT_STATION;
+					// XXX this seems to cause excessive adds? or at least these adds are not removed
 					this.currentNode.addCitizen();
 					
 				}
@@ -1075,7 +1090,6 @@ class Citizen extends Drawable {
 				// ready to wait for train
 				actionTime = 0;
 				status = TransitStatus.WAITING_AT_STATION;
-				this.currentNode.addCitizen();
 				
 			}
 			break;
@@ -1112,6 +1126,7 @@ class Citizen extends Drawable {
 					
 				}
 				
+				Node tmpNode = currentNode;
 				currentNode = nextNode;
 				currentLine = nextLine;
 				nextNode = path[pathIndex].getNode();
@@ -1128,6 +1143,7 @@ class Citizen extends Drawable {
 					} else {
 						
 						status = TransitStatus.LINE_TRANSFER;
+						tmpNode.addCitizen();
 						
 					}
 					
@@ -1152,8 +1168,6 @@ class Citizen extends Drawable {
 
 				status = TransitStatus.WAITING_AT_STATION;
 				currentNode = nextNode;
-				if (pathIndex++ <= path.length-1) { nextNode = path[pathIndex].getNode(); } // XXX this may be causing problems as it tries to avoid IndexOOB
-
 			}
 			break;
 		default:
