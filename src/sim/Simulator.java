@@ -527,7 +527,7 @@ class Sim extends App {
 			
 		}
 		
-		return nodes[nodes.length-1];
+		return nodes[rand];
 		
 	}
 
