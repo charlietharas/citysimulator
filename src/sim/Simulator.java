@@ -406,7 +406,15 @@ class Sim extends App {
 			
 			for (int i = 0; i < citizens.size(); i++) {
 				
-				if (citizens.get(i).getStatus().equals(TransitStatus.DESPAWN) || citizens.get(i).getGlobalTime() >= Citizen.MAX_TIME_ALIVE) {
+				if (citizens.get(i).getGlobalTime() >= Citizen.MAX_TIME_ALIVE) {
+					
+					citizens.get(i).getCurrentNode().removeCitizen();
+					citizens.remove(i);
+					continue;
+					
+				}
+				
+				if (citizens.get(i).getStatus().equals(TransitStatus.DESPAWN)) {
 					
 					citizens.remove(i);
 					
@@ -613,12 +621,6 @@ class Drawable {
 
 	}
 	
-	public static void drawCircle(App a, CitizenContainer d, Vector3 col) {
-
-		a.drawCircle(d.getPos().plus(pan).plus(mousePan).times(zoom), d.getSize() * zoom, col);
-
-	}
-
 	public static void drawCircle(App a, Drawable d, Vector3 col) {
 
 		a.drawCircle(d.getPos().plus(pan).plus(mousePan).times(zoom), d.getSize() * zoom, col);
@@ -950,7 +952,7 @@ class Citizen extends Drawable {
 
 	public static final Vector3 DEFAULT_CITIZEN_COLOR = Vector3.black;
 	public static final double DEFAULT_CITIZEN_SIZE = 0.25;
-	public static final double DEFAULT_CONTAINER_CITIZEN_SIZE = 0.1;
+	public static final double DEFAULT_CONTAINER_CITIZEN_SIZE = 0.05;
 	public static final double DEFAULT_UNLOAD_TIME = Train.DEFAULT_STOP_DURATION / 3;
 	public static final double DEFAULT_CITIZEN_SPEED = 0.2;
 	public static final double DESPAWN_INTERVAL = 2;
@@ -1300,7 +1302,7 @@ class Train extends CitizenContainer {
 
 class Line {
 
-	public static int DEFAULT_TRAIN_SPAWN_SPACING = 4;
+	public static int DEFAULT_TRAIN_SPAWN_SPACING = 8;
 	public static Line WALKING_LINE = new Line("Transfer", null, null, null);
 
 	private String id;
