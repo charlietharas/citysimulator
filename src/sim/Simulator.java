@@ -716,7 +716,7 @@ class CitizenContainer extends Drawable {
 	}
 	
 	public void addCitizen() { this.numCitizens++; }
-	public void removeCitizen() { this.numCitizens--; }
+	public void removeCitizen() { this.numCitizens = Math.max(0, this.numCitizens--); }
 	public int getCitizens() { return this.numCitizens; }
 	public double getSize() { return Math.min(MAX_SIZE, this.numCitizens * Citizen.DEFAULT_CONTAINER_CITIZEN_SIZE + super.getSize()); }
 	
@@ -1006,11 +1006,12 @@ class Citizen extends Drawable {
 	}
 
 	// XXX A LOT OF CITIZENS ARE DEFINITELY GETTING STUCK
+	// XXX CITIZEN TRACKING FOR NODES/TRAINS IS OFF
 	public void followPath() {
 				
 		if (status == TransitStatus.DESPAWN) { return; }
 		
-		if (pathIndex == 0 && actionTime == 0) {
+		if (actionTime == 0 && pathIndex == 0) {
 
 			setPos(path[0].getNode().getPos());
 
@@ -1022,6 +1023,7 @@ class Citizen extends Drawable {
 
 		if (pathIndex == path.length) {
 
+			// this.currentNode.removeCitizen(); //. ?
 			status = TransitStatus.DESPAWN;
 			return;
 
@@ -1083,6 +1085,7 @@ class Citizen extends Drawable {
 					// ready to board train
 					this.currentNode.removeCitizen();
 					currentTrain = t;
+					this.currentTrain.addCitizen();
 					currentLine = t.getLine();
 					nextNode = t.getRealNextStop();
 					status = TransitStatus.ON_TRAIN;
@@ -1094,7 +1097,7 @@ class Citizen extends Drawable {
 			}
 			break;
 		case ON_TRAIN:
-			if (justBoarded && currentTrain.getStatus().equals(TransitStatus.ON_TRAIN)) { this.currentTrain.addCitizen(); justBoarded = false; }
+			if (justBoarded && currentTrain.getStatus().equals(TransitStatus.ON_TRAIN)) { justBoarded = false; }
 			if (!justBoarded && currentTrain.getStatus().equals(TransitStatus.WAITING_AT_STATION) && currentTrain.getStop().equals(currentNode)) {
 
 				pathIndex++;
@@ -1113,8 +1116,8 @@ class Citizen extends Drawable {
 				
 				if (!currentLine.equals(currentTrain.getLine())) {
 
-					this.currentTrain.removeCitizen();
 					// at station and transfer required, ready to proceed to next path node
+					this.currentTrain.removeCitizen();
 					if (currentLine.equals(Line.WALKING_LINE)) {
 						
 						status = TransitStatus.WALKING;
@@ -1166,6 +1169,7 @@ class Citizen extends Drawable {
 		pathIndex++;
 		if (pathIndex == path.length) {
 			
+			this.currentNode.removeCitizen();
 			this.status = TransitStatus.DESPAWN;
 			return;
 			
