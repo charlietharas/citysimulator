@@ -27,6 +27,7 @@ import java.util.Set;
  * - clean up some code
  * - better logging (Logger class with verbosity levels?)
  * - better documentation
+ * - multithreading ??
  * - zoom to mouse (work out math) & scaling panning to zoom
  * - map rotation ??
  * - background geography ??
