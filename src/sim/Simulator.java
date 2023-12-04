@@ -16,6 +16,7 @@ import java.util.Set;
 // TODO reminder for blog post throughout
 
 /* TODO:
+ * - fix citizen pathfinding & pathfollowing
  * - click-to-spawn citizens
  * 	- will need to temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
  * - train spawn frequencies built into savefile
@@ -23,7 +24,9 @@ import java.util.Set;
  * 	- idea: have them hook onto the nearest ComplexLine that is part of their line, then travel along it, then continue
  * 		(ComplexLines would have to have head and tail nodes with pos's which can then be checked using SegmentedNodes (would need to be added to that first))
  * 		algorithm will probably require tracking at least 1st-most-recently visited ComplexLine
+ * 		this should also ideally be done in setup() otherwise it's very computationally expensive considering that paths don't change
  * - ability to click on trains and citizens to see their paths
+ * 		this could prove very computationally expensive, don't want to check every citizen and train but also don't want to update segments
  * - clean up some code
  * - better logging (Logger class with verbosity levels?)
  * - better documentation
@@ -150,6 +153,7 @@ class Sim extends App {
 				stationY[c] = Double.parseDouble(n[3]);
 				c++;
 
+				// XXX this is very slow, find a better way
 				for (String str : stopLines) {
 
 					lines.get(str).addStop(stop, 1);
@@ -244,6 +248,7 @@ class Sim extends App {
 				l.rearrangeStops(lineConfigs.get(l.getID()).split(","));
 				l.overrideStopColors();
 				
+				// XXX this is very slow, find a better way besides constantly rewriting array
 				for (int i = 0; i < l.getLength(); i += Line.DEFAULT_TRAIN_SPAWN_SPACING) {
 
 					l.addTrain(new Train(c+"", this, i, l, l.getColor(), Train.DEFAULT_TRAIN_SPEED));
@@ -325,9 +330,10 @@ class Sim extends App {
 		citizens = new ArrayList<Citizen>(Sim.DEFAULT_CITIZEN_ALLOCATION);
 
 		// debug
-		for (int i = 0; i < 1000; i++) {
+		for (int i = 0; i < 10; i++) {
 			
 			citizens.add(new Citizen(this, Node.findPath(sample(nodes, ridershipTotal), sample(nodes, ridershipTotal))));
+			System.out.println(Arrays.toString(citizens.get(i).getPath()) + "\n");
 			
 		}
 		
@@ -464,7 +470,7 @@ class Sim extends App {
 		for (Citizen c : citizens) {
 
 			c.followPath();
-			if (true && c.getStatus().equals(TransitStatus.WALKING)) { // debug
+			if (true || c.getStatus().equals(TransitStatus.WALKING)) { // debug
 
 				Drawable.drawCircle(this, c);
 
@@ -472,7 +478,7 @@ class Sim extends App {
 
 		}
 		
-		System.out.println(citizens.size()); // debug
+		// System.out.println(citizens.size()); // debug
 
 		for (Line l : lines) {
 
@@ -966,7 +972,7 @@ enum TransitStatus {
 class Citizen extends Drawable {
 
 	public static final Vector3 DEFAULT_CITIZEN_COLOR = Vector3.black;
-	public static final double DEFAULT_CITIZEN_SIZE = 0.25;
+	public static final double DEFAULT_CITIZEN_SIZE = 2; // debug 0.25
 	public static final double DEFAULT_CONTAINER_CITIZEN_SIZE = 0.05;
 	public static final double DEFAULT_UNLOAD_TIME = Train.DEFAULT_STOP_DURATION / 3;
 	public static final double DEFAULT_CITIZEN_SPEED = 0.2;
@@ -1094,11 +1100,13 @@ class Citizen extends Drawable {
 			}
 			break;
 		case WAITING_AT_STATION:
+			// XXX a big problem is happening here: either with getCurrentTrains, getRealNextStop, or equals
 			for (Train t : this.currentNode.getCurrentTrains().values()) {
 
 				// path-taking is greedy (e.g. takes any available train to next stop)
 				if (t.getRealNextStop().equals(nextNode)) {
 
+					System.out.println("HIT from " + currentNode.getID() + " to " + nextNode.getID()); // debug
 					// ready to board train
 					this.currentNode.removeCitizen();
 					currentTrain = t;
