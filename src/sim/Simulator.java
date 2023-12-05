@@ -15,6 +15,8 @@ import java.util.Set;
 
 // TODO reminder for blog post throughout
 
+// TODO need to edit lines_geom to have correct segment IDs for S-lines and A-lines
+
 /* TODO:
  * 	- have trains hook onto the nearest ComplexLine that is part of their line, then travel along it, then continue
  * 		algorithm will probably require tracking at least 1st-most-recently visited ComplexLine
@@ -40,7 +42,7 @@ public class Simulator {
 	public static void main(String [] args) {
 
 		// app initialization
-		App app = new Sim(5, new Vector3(0.05, 0.0, 10.0), new Vector3(150, 180, 15), new Vector2(0.9, 1), new Vector2(64, 64), Vector3.white, 1024);
+		App app = new Sim(0.5, new Vector3(0.05, 0.0, 10.0), new Vector3(150, 180, 15), new Vector2(0.9, 1), new Vector2(64, 64), Vector3.white, 1024);
 
 		app.run();
 
@@ -62,7 +64,7 @@ class Sim extends App {
 	private int ridershipTotal;
 
 	private ArrayList<Citizen> citizens;
-	
+
 	private boolean paused;
 
 	private double globalTime;
@@ -105,9 +107,9 @@ class Sim extends App {
 	void setup() {
 
 		Logger.log("Started setup");
-		
+
 		this.paused = false;
-		
+
 		// mouse wheel zooming
 		this.addMouseWheelListener( new MouseAdapter() {
 			@Override public void mouseWheelMoved(MouseWheelEvent e) {
@@ -116,7 +118,7 @@ class Sim extends App {
 
 			}
 		});
-		
+
 		textPos = new Vector2(-this._windowWidthInWorldUnits / 2, this._windowHeightInWorldUnits / 2 - 2);
 		text2Pos = textPos.plus(new Vector2(0, -2));
 
@@ -155,7 +157,7 @@ class Sim extends App {
 
 				int ridership =  Integer.parseInt(n[5]);
 				ridershipTotal += ridership;
-				Node stop = new Node(n[1], new Vector2(), Vector3.black,ridership);
+				Node stop = new Node(n[1], new Vector2(), Vector3.black,ridership , true);
 				nodesList.add(stop);
 				stationXList.add(Double.parseDouble(n[2]));
 				stationYList.add(Double.parseDouble(n[3]));
@@ -171,19 +173,19 @@ class Sim extends App {
 			}
 
 		} catch (IOException e) { assert false; }
-		
+
 		nodes = new Node[numStops];
 		double[] stationX = new double[numStops];
 		double[] stationY = new double[numStops];
-		
+
 		for (int i = 0; i < numStops; i++) {
-			
+
 			nodes[i] = nodesList.get(i);
 			stationX[i] = stationXList.get(i);
 			stationY[i] = stationYList.get(i);
-			
+
 		}
-		
+
 		Logger.log("Read " + nodes.length + " station nodes");
 
 		// convert real-world geometry data to world units
@@ -245,7 +247,7 @@ class Sim extends App {
 			}
 
 		}
-		
+
 		Logger.log("Segmented nodes into " + segmentedNodes.size() + " by " + segmentedNodes.get(0).size() + " grid and processd position data.");
 
 		// load in configurations for proper stop orders for lines
@@ -263,46 +265,6 @@ class Sim extends App {
 			}
 
 		} catch (IOException e) { assert false; }
-
-		// apply line configurations
-		c = 0;
-		for (Line l : lines.values()) {
-
-			try {
-
-				l.rearrangeStops(lineConfigs.get(l.getID()).split(","));
-				l.overrideStopColors();
-				
-				Train[] trains = new Train[l.getLength() / Line.DEFAULT_TRAIN_SPAWN_SPACING + 1];
-				for (int i = 0; i < trains.length; i++) {
-
-					trains[i] = new Train(c+"", this, (i * Line.DEFAULT_TRAIN_SPAWN_SPACING) % l.getLength(), l, l.getColor(), Train.DEFAULT_TRAIN_SPEED);
-					c++;
-
-				}
-				
-				l.setTrains(trains);
-
-			} catch (Exception e) {
-
-				Logger.log("Caught invalid line " + l.getID());
-				assert false;
-				
-			}
-
-		}
-
-		Logger.log("Loaded and applied line configurations for lines " + lines.keySet());
-
-		// add lines to simulation array
-		c = 0;
-		this.lines = new Line[lines.keySet().size()];
-
-		for (Line l : lines.values()) {
-
-			this.lines[c++] = l;
-
-		}
 
 		// generate complex lines for drawing
 		ArrayList<ComplexLine> complexLinesBuilder = new ArrayList<ComplexLine>();
@@ -337,11 +299,19 @@ class Sim extends App {
 
 				for (int i = 0; i < lineXD.length; i++) {
 
-					lineNodes[i] = new Node(new Vector2(lineXD[i], lineYD[i]), lineColor, 0);
+					lineNodes[i] = new Node(new Vector2(lineXD[i], lineYD[i]), lineColor, 0, false);
 
 				}
-
-				complexLinesBuilder.add(new ComplexLine(lineData[1], lineColor, lineNodes, Double.parseDouble(lineData[5])));
+				
+				String[] line3Split = lineData[3].split("-");
+				Line[] tempLines = new Line[line3Split.length];
+				for (int i = 0; i < line3Split.length; i++) {
+					
+					tempLines[i] = lines.get(line3Split[i]);
+					
+				}
+				
+				complexLinesBuilder.add(new ComplexLine(lineData[1], lineColor, lineNodes, Double.parseDouble(lineData[5]), tempLines));
 
 			}
 
@@ -353,34 +323,70 @@ class Sim extends App {
 			complexLines[i] = complexLinesBuilder.get(i);
 
 		}
-		
+
 		for (ComplexLine n : complexLines) { 
 
-			int xIndex = ((int) (this._windowWidthInWorldUnits/2 + n.getPos().x)/nodeSegmentSize) + 1;
-			int yIndex = ((int) (this._windowHeightInWorldUnits/2 + n.getPos().y)/nodeSegmentSize) + 1;
+			int xIndex1 = ((int) (this._windowWidthInWorldUnits/2 + n.getHead().getPos().x)/nodeSegmentSize) + 1;
+			int yIndex1 = ((int) (this._windowHeightInWorldUnits/2 + n.getHead().getPos().y)/nodeSegmentSize) + 1;
+			int xIndex2 = ((int) (this._windowWidthInWorldUnits/2 + n.getHead().getPos().x)/nodeSegmentSize) + 1;
+			int yIndex2 = ((int) (this._windowHeightInWorldUnits/2 + n.getHead().getPos().y)/nodeSegmentSize) + 1;
 
-			segmentedNodes.get(xIndex).get(yIndex).add(n);
-			n.setSegmentIndex(xIndex, yIndex);
+			segmentedNodes.get(xIndex1).get(yIndex1).add(n);
+			segmentedNodes.get(xIndex2).get(yIndex2).add(n);
+			n.setSegmentIndex(xIndex1, yIndex1);
+
 
 		}
-		
+
 		Logger.log("Loaded and generated " + complexLines.length + " ComplexLine objects and segmented into grid");
+
+		// apply line configurations
+		c = 0;
+		for (Line l : lines.values()) {
+
+			l.rearrangeStops(lineConfigs.get(l.getID()).split(","), segmentedNodes);
+			l.overrideStopColors();
+
+			Train[] trains = new Train[l.getLength() / Line.DEFAULT_TRAIN_SPAWN_SPACING + 1];
+			for (int i = 0; i < trains.length; i++) {
+
+				trains[i] = new Train(c+"", this, (i * Line.DEFAULT_TRAIN_SPAWN_SPACING) % l.getLength(), l, l.getColor(), Train.DEFAULT_TRAIN_SPEED);
+				c++;
+
+			}
+
+			l.setTrains(trains);
+
+
+		}
+
+		Logger.log("Loaded and applied line configurations for lines " + lines.keySet());
+
+		// add lines to simulation array
+		c = 0;
+		this.lines = new Line[lines.keySet().size()];
+
+		for (Line l : lines.values()) {
+
+			this.lines[c++] = l;
+
+		}
 
 		citizens = new ArrayList<Citizen>(Sim.DEFAULT_CITIZEN_ALLOCATION);
 		this.citizenSpawnCycleTime = 0;
 		this.citizenDespawnCycleTime = 0;
-		
+
 		for (int i = 0; i < Citizen.INITIAL_SPAWN_AMOUNT; i++) {
-			
+
 			citizens.add(new Citizen(this, Node.findPath(sample(nodes, ridershipTotal), sample(nodes, ridershipTotal))));
-			
+
 		}
-		
+
 		Logger.log("Populated " + Citizen.INITIAL_SPAWN_AMOUNT + " citizens");
-		
+
 		Logger.log("Starting simulation!");
 		Logger.disable();
-				
+
 	}
 
 	void loop() {
@@ -444,65 +450,65 @@ class Sim extends App {
 			this.timeIncrement = Drawable.constrict(timeIncrement+TIME_INCREMENT_INCREMENT, MIN_TIME_INCREMENT, MAX_TIME_INCREMENT);
 
 		} if (keyPressed('P')) {
-			
+
 			if (paused) {
-				
+
 				this.timeIncrement = this.tempTimeIncrement;
-				
+
 			} else {
-				
+
 				this.tempTimeIncrement = timeIncrement;
 				this.timeIncrement = 0;
-				
+
 			}
-			
+
 			paused = !paused;
-			
+
 		}
-		
+
 		// despawn citizens
 		// at higher simulation speeds, citizens seem to be despawned more frequently, resulting in less being handled (which seems fair for performance)
 		if (this.citizenDespawnCycleTime >= Citizen.DESPAWN_INTERVAL * this.timeIncrement) {
-			
+
 			int c1 = 0; int c2 = 0;
 			this.citizenDespawnCycleTime = 0;
 			for (int i = 0; i < citizens.size(); i++) {
-				
+
 				if (citizens.get(i).getGlobalTime() >= Citizen.MAX_TIME_ALIVE * timeIncrement) {
-					
+
 					c1++;
 					citizens.get(i).getCurrentNode().removeCitizen(); // this may cause excessive removals
 					citizens.remove(i);
 					continue;
-					
+
 				}
-				
+
 				if (citizens.get(i).getStatus().equals(TransitStatus.DESPAWN)) {
-					
+
 					c2++;
 					citizens.remove(i);
-					
+
 				}
-				
+
 			}
-			
+
 			Logger.log("Despawned " + (c1+c2) + " citizens, " + c1 + " garbage collected and " + c2 + " natural");
-			
+
 		}
-		
+
 		// spawn citizens
 		if (this.citizenSpawnCycleTime >= Citizen.SPAWN_INTERVAL * this.timeIncrement) {
-			
+
 			this.citizenSpawnCycleTime = 0;
 			int max = Citizen.SPAWN_RANGE;
 			if (Citizen.SPAWN_RANDRANGE) { max *= Math.random(); }
 			for (int i = 0; i < max; i++) {
-				
+
 				citizens.add(new Citizen(this, Node.findPath(sample(nodes, ridershipTotal), sample(nodes, ridershipTotal))));
-				
+
 			}
 			Logger.log("Spawned " + max + " citizens");
-			
+
 		}
 
 		// draw game objects
@@ -517,7 +523,7 @@ class Sim extends App {
 			Drawable.drawCircle(this, n);
 
 		}
-		
+
 		for (Citizen c : citizens) {
 
 			c.followPath();
@@ -528,7 +534,7 @@ class Sim extends App {
 			}
 
 		}
-		
+
 		for (Line l : lines) {
 
 			for (Train t : l.getTrains()) {
@@ -541,6 +547,8 @@ class Sim extends App {
 
 		}
 		
+		
+
 		drawString("Current simulation speed: " + String.format("%.3f", this.timeIncrement), this.textPos, Vector3.black, 12, false);
 		drawString("Active citizen agents: " + citizens.size(), this.text2Pos, Vector3.black, 12, false);
 
@@ -599,46 +607,46 @@ class Sim extends App {
 		return true;
 
 	}
-	
+
 	public static Node sample(Node[] nodes, int sum) {
-		
+
 		int rand = (int)(Math.random() * sum);
 		int randCount = 0;
 		for (Node n : nodes) {
-			
+
 			if (randCount >= rand) {
-				
+
 				return n;
-				
+
 			}
 			randCount += n.getRidership();
-			
+
 		}
-		
+
 		return nodes[nodes.length-1];
-		
+
 	}
 
 	public double getTimeIncrement() { return this.timeIncrement; }
 	public double getGlobalTime() { return this.globalTime; }
 	public String toString() { return "City simulation running for " + globalTime + " ticks."; }
-	
+
 	static class Logger {
-		
+
 		private static long time = System.currentTimeMillis();
 		private static boolean enabled = true;
-		
+
 		public static void log(String str) {
-			
+
 			if (!enabled) { return; }
-			System.out.println((System.currentTimeMillis() - time) / 1000.0 + "ms: " + str);
-			
+			System.out.println(String.format("%.3f", (System.currentTimeMillis() - time) / 1000.0) + "ms: " + str);
+
 		}
-		
+
 		public static void enable() { enabled = true; }
 		public static void disable() { enabled = false; }
 		public static boolean isEnabled() { return enabled; }
-		
+
 	}
 
 }
@@ -660,7 +668,7 @@ class Drawable {
 	private Vector2 pos;
 	private Vector3 color;
 	private double size;
-	
+
 	private int xSegmentIndex;
 	private int ySegmentIndex;
 
@@ -713,7 +721,7 @@ class Drawable {
 		drawCircle(a, d, d.getColor());
 
 	}
-	
+
 	public static void drawCircle(App a, Drawable d, Vector3 col) {
 
 		a.drawCircle(d.getPos().plus(pan).plus(mousePan).times(zoom), d.getSize() * zoom, col);
@@ -803,21 +811,21 @@ class Drawable {
 class CitizenContainer extends Drawable {
 
 	public static final double MAX_SIZE = Node.DEFAULT_NODE_SIZE * 5;
-	
+
 	private int numCitizens;
-	
+
 	public CitizenContainer(String id, Vector2 pos, Vector3 color, double size) {
-	
+
 		super(id, pos, color, size);
 		this.numCitizens = 0;
-	
+
 	}
-	
+
 	public void addCitizen() { this.numCitizens++; }
 	public void removeCitizen() { this.numCitizens = Math.max(0, --this.numCitizens); }
 	public int getCitizens() { return this.numCitizens; }
 	public double getSize() { return Math.min(MAX_SIZE, this.numCitizens * Citizen.DEFAULT_CONTAINER_CITIZEN_SIZE + super.getSize()); }
-	
+
 }
 
 class Node extends CitizenContainer {
@@ -833,36 +841,31 @@ class Node extends CitizenContainer {
 
 	private double ridership;
 	private double score;
+	private boolean station;
 
-	public Node(Vector2 pos, Vector3 color, int ridership) {
+	public Node(Vector2 pos, Vector3 color, int ridership, boolean station) {
 
-		super("", pos, color, DEFAULT_NODE_SIZE);
-		clear();
-		this.score = 0; this.ridership = ridership;
-
-	}
-
-	public Node(Vector2 pos, Vector3 color, int ridership, double size) {
-
-		super("", pos, color, size);
-		clear();
-		this.score = 0; this.ridership = ridership;
+		this("", pos, color, ridership, DEFAULT_NODE_SIZE, station);
 
 	}
 
-	public Node(String id, Vector2 pos, Vector3 color, int ridership) {
+	public Node(Vector2 pos, Vector3 color, int ridership, double size, boolean station) {
 
-		super(id, pos, color, DEFAULT_NODE_SIZE);
-		clear();
-		this.score = 0; this.ridership = ridership;
+		this("", pos, color, ridership, size, station);
 
 	}
 
-	public Node(String id, Vector2 pos, Vector3 color, int ridership, double size) {
+	public Node(String id, Vector2 pos, Vector3 color, int ridership, boolean station) {
+
+		this(id, pos, color, ridership, DEFAULT_NODE_SIZE, station);
+
+	}
+
+	public Node(String id, Vector2 pos, Vector3 color, int ridership, double size, boolean station) {
 
 		super(id, pos, color, size);
 		clear();
-		this.score = 0; this.ridership = ridership;
+		this.score = 0; this.ridership = ridership; this.station = station;
 
 	}
 
@@ -984,6 +987,7 @@ class Node extends CitizenContainer {
 	public void clearNeighbors() { this.neighbors = new HashMap<PathWrapper, Double>(); }
 	public void clearTrains() { this.currentTrains = new HashMap<String, Train>(Sim.DEFAULT_TRAIN_ALLOCATION); }
 	public void setRidership(double d) { this.ridership = d; }
+	public boolean isStation() { return this.station; }
 	public HashMap<PathWrapper, Double> getNeighbors() { return this.neighbors; }
 	public HashMap<String, Train> getCurrentTrains() { return this.currentTrains; }
 	public double getRidership() { return this.ridership; }
@@ -1015,14 +1019,16 @@ class ComplexLine extends Drawable {
 	private Node head;
 	private Node tail;
 	private double length;
+	private Line[] lines;
 
-	public ComplexLine(String id, Vector3 col, Node[] nodes, double length) {
+	public ComplexLine(String id, Vector3 col, Node[] nodes, double length, Line[] lines) {
 
 		super(id, nodes[0].getPos(), col, -1);
 		this.head = nodes[0];
 		this.tail = nodes[nodes.length-1];
 		this.nodes = nodes;
 		this.length = length;
+		this.lines = lines;
 
 	}
 
@@ -1032,6 +1038,7 @@ class ComplexLine extends Drawable {
 	public Node getHead() { return this.head; }
 	public Node getTail() { return this.tail; }
 	public Node getNode(int i) { return this.nodes[i]; }
+	public Line[] getLines() { return this.lines; }
 	public int getNodesSize() { return nodes.length; }
 	public double getLength() { return length; }
 	public String toString() { return "ComplexLine id=" + this.getID() + " nodes=" + Arrays.deepToString(nodes); }
@@ -1053,9 +1060,9 @@ class Citizen extends Drawable {
 	public static final double DEFAULT_CITIZEN_SPEED = 0.2;
 	public static final double DESPAWN_INTERVAL = 4;
 	public static final double MAX_TIME_ALIVE = 2000;
-	public static final int INITIAL_SPAWN_AMOUNT = 1000;
+	public static final int INITIAL_SPAWN_AMOUNT = 0; // debug 1000
 	public static final double SPAWN_INTERVAL = 4;
-	public static final int SPAWN_RANGE = 64;
+	public static final int SPAWN_RANGE = 0; // debug 1000
 	public static final boolean SPAWN_RANDRANGE = false;
 
 	private Sim sim;
@@ -1109,9 +1116,9 @@ class Citizen extends Drawable {
 	// just so you know, this function is a pretty horrible mess
 	// may not be 100% conservative (e.g. extra citizens may be getting incorrectly added/removed from visuals)
 	public void followPath() {
-				
+
 		if (status == TransitStatus.DESPAWN) { return; }
-		
+
 		if (actionTime == 0 && pathIndex == 0) {
 
 			setPos(path[0].getNode().getPos());
@@ -1137,13 +1144,13 @@ class Citizen extends Drawable {
 
 		case WALKING:
 			if (walkTime == 0) {
-				
+
 				walkDist = Vector2.distanceBetween(this.getPos(), nextNode.getPos());
 				initialWalkPos = this.getPos();
-				
+
 			}
 			if (walkTime >= walkDist) {
-				
+
 				// at station, ready to proceed to next path node
 				walkTime = 0;
 				moveAlongPath();
@@ -1155,7 +1162,7 @@ class Citizen extends Drawable {
 
 					status = TransitStatus.WAITING_AT_STATION;
 					this.currentNode.addCitizen();
-					
+
 				}
 
 			} else {
@@ -1163,7 +1170,7 @@ class Citizen extends Drawable {
 				// walk to station
 				setPos(Vector2.lerp(walkTime/walkDist, initialWalkPos, nextNode.getPos()));
 				walkTime += modSpeed;
-				
+
 			}
 
 			break;
@@ -1173,7 +1180,7 @@ class Citizen extends Drawable {
 				// ready to wait for train
 				actionTime = 0;
 				status = TransitStatus.WAITING_AT_STATION;
-				
+
 			}
 			break;
 		case WAITING_AT_STATION:
@@ -1201,25 +1208,25 @@ class Citizen extends Drawable {
 
 				// how on earth is this not executing many times??
 				moveAlongPath();
-				
+
 				if (!currentLine.equals(currentTrain.getLine())) {
 
 					// at station and transfer required, ready to proceed to next path node
 					this.currentTrain.removeCitizen();
 					if (currentLine.equals(Line.WALKING_LINE)) {
-						
+
 						status = TransitStatus.WALKING;
-						
+
 					} else {
-						
+
 						status = TransitStatus.LINE_TRANSFER;
 						currentNode.addCitizen();
-						
+
 					}
-					
+
 					currentTrain = null;
 					actionTime = 0;
-						
+
 				}
 
 			} else {
@@ -1239,27 +1246,27 @@ class Citizen extends Drawable {
 				status = TransitStatus.WAITING_AT_STATION;
 				moveAlongPath();
 				this.currentNode.addCitizen();
-				
+
 			}
 			break;
 		default:
 			break;
-			
+
 		}
 
 	}
-	
+
 	private void despawn() {
-		
+
 		// assumes that node removals have already been handled correctly, this could result in excess visual accumulation across nodes
 		if (this.currentTrain != null) {
-			
+
 			this.currentTrain.removeCitizen();
-			
+
 		}
-		
+
 		this.status = TransitStatus.DESPAWN;
-		
+
 	}
 
 	private void moveAlongPath() {
@@ -1269,10 +1276,10 @@ class Citizen extends Drawable {
 		currentLine = nextLine;
 		pathIndex++;
 		if (pathIndex == path.length) {
-			
+
 			despawn();
 			return;
-			
+
 		}
 		nextNode = path[pathIndex].getNode();
 		nextLine = path[pathIndex].getLine();
@@ -1282,12 +1289,12 @@ class Citizen extends Drawable {
 	private void clearVariables() {
 
 		if (this.path == null || this.path.length <= 1) {
-			
+
 			this.status = TransitStatus.DESPAWN;
 			return;
-			
+
 		}
-		
+
 		setPos(path[0].getNode().getPos());
 		this.status = TransitStatus.SPAWN;
 		this.pathIndex = 0;
@@ -1321,13 +1328,14 @@ class Train extends CitizenContainer {
 
 	public static final double DEFAULT_TRAIN_SIZE = 1.0;
 	public static final double DEFAULT_STOP_DURATION = 7;
-	public static final double DEFAULT_TRAIN_SPEED = 0.3;
+	public static final double DEFAULT_TRAIN_SPEED = 1;
 	public static final int FONT_SIZE_CONST = 11;
 	public static final boolean FONT_CENTERED = true;
 
 	private TransitStatus status;
 	private Sim sim;
 	private Line line;
+	private int drawPathIndex;
 	private int stop;
 	private int nextStop;
 	private double globalTime;
@@ -1343,42 +1351,58 @@ class Train extends CitizenContainer {
 		this.stop = spawnStop;
 		this.speed = speed;
 		this.status = TransitStatus.SPAWN;
+		this.drawPathIndex = 0;
 
 	}
 
 	public void updatePosAlongLine() {
 
 		double modSpeed = speed * sim.getTimeIncrement();
+		int nextDrawPathIndex = (this.drawPathIndex+1) % this.line.getDrawPathLength();
 		nextStop = (this.stop+1) % line.getLength();
 		globalTime += sim.getTimeIncrement();
 		stopTime += modSpeed;
 
-		if (stopTime >= this.line.getDist(nextStop)) {
+		double dist = Vector2.distanceBetween(this.line.getDrawPathPoint(drawPathIndex).getPos(), this.line.getDrawPathPoint(nextDrawPathIndex).getPos());
+		if (stopTime >= dist) {
 
-			// go to next station
-			if (stoppedTime >= DEFAULT_STOP_DURATION) {
-
+			if (line.getDrawPathPoint(drawPathIndex).isStation()) {
+			
+				// go to next station
+				if (stoppedTime >= DEFAULT_STOP_DURATION) {
+	
+					this.status = TransitStatus.ON_TRAIN;
+					this.getNextStop().removeTrain(this);
+					stopTime = 0;
+					stoppedTime = 0;
+					stop = nextStop;
+					drawPathIndex = nextDrawPathIndex;
+					setPos(this.line.getStop(stop).getPos());
+	
+				// wait at station
+				} else {
+	
+					this.status = TransitStatus.WAITING_AT_STATION;
+					this.getNextStop().addTrain(this);
+					stoppedTime += sim.getTimeIncrement();
+	
+				}
+				
+			} else {
+				
 				this.status = TransitStatus.ON_TRAIN;
-				this.getNextStop().removeTrain(this);
 				stopTime = 0;
 				stoppedTime = 0;
-				stop = nextStop;
-				setPos(this.line.getStop(stop).getPos());
-
-			// wait at station
-			} else {
-
-				this.status = TransitStatus.WAITING_AT_STATION;
-				this.getNextStop().addTrain(this);
-				stoppedTime += sim.getTimeIncrement();
-
+				drawPathIndex = nextDrawPathIndex;
+				setPos(this.line.getDrawPathPoint(drawPathIndex).getPos());
+				
 			}
 
 		} else {
 
 			// move along line
 			this.status = TransitStatus.ON_TRAIN;
-			setPos(Vector2.lerp(stopTime/this.line.getDist(nextStop), this.line.getStop(stop).getPos(), this.line.getStop(nextStop).getPos()));
+			setPos(Vector2.lerp(stopTime/dist, this.line.getDrawPathPoint(drawPathIndex).getPos(), this.line.getDrawPathPoint(nextDrawPathIndex).getPos()));
 
 		}
 
@@ -1402,12 +1426,13 @@ class Train extends CitizenContainer {
 class Line {
 
 	public static int DEFAULT_TRAIN_SPAWN_SPACING = 8;
-	public static Line WALKING_LINE = new Line("Transfer", null, null, null);
+	public static Line WALKING_LINE = new Line("Transfer");
 
 	private String id;
 	private Vector3 color;
 
 	private Node[] stops;
+	private Node[] drawPath;
 	private double[] dists;
 	private Train[] trains;
 
@@ -1417,15 +1442,7 @@ class Line {
 
 	}
 
-	public Line(String id, Node[] stops, double[] dists, Train[] trains) {
-
-		this(id);
-		this.stops = stops;
-		this.dists = dists;
-		this.trains = trains;
-
-	}
-
+	// this is only used inefficiently at the beginning to register appropriate stops to a line before they are reordered
 	public void addStop(Node stop, double dist) {
 
 		if (this.stops == null) { this.stops = new Node[0]; }
@@ -1449,15 +1466,17 @@ class Line {
 
 	}
 
+	// TODO build ComplexLines into path
 	// reconfigure stop list according to preset stop pattern
-	public void rearrangeStops(String[] stopConfig) {
+	public void rearrangeStops(String[] stopConfig, ArrayList<ArrayList<ArrayList<Drawable>>> segmentedNodes) {
 
+		ArrayList<Node> drawPathBuilder = new ArrayList<Node>();
 		ArrayList<Node> newStops = new ArrayList<Node>();
 		for (String s : stopConfig) {
 
 			for (Node n : this.stops) {
 
-				if (n.getID().equals(s.replaceAll("_", " "))) {
+				if (n.getID().equals(s)) {
 
 					newStops.add(n);
 
@@ -1487,7 +1506,103 @@ class Line {
 		for (int i = 0; i < stops.length; i++) {
 
 			stops[i] = newStops.get(i);
+			Node stop = stops[i];
 
+			HashSet<Drawable> nearby = new HashSet<Drawable>();
+			for (int x = -1; x <= 1; x++) {
+
+				for (int y = -1; y <= 1; y++) {
+
+					for (Drawable n : segmentedNodes.get(stop.getXSegmentIndex()+x).get(stop.getYSegmentIndex()+y)) {
+
+						if (n.getClass() == ComplexLine.class) {
+							
+							ComplexLine nCL = (ComplexLine) n;
+							for (Line l : nCL.getLines()) {
+								
+								if (l == this) {
+									
+									nearby.add(n);
+									
+								}
+								
+							}
+							
+						} else if (n.getClass() == Node.class && newStops.contains(n)) {
+							
+							nearby.add(n);
+							
+						}
+
+					}
+
+				}
+
+			}
+
+			drawPathBuilder.add(stop);
+
+			if (i == stops.length-1) { break; }
+			double minPosDiff = Double.MAX_VALUE;
+			Drawable nextNearest = stop;
+			HashSet<Drawable> visited = new HashSet<Drawable>();
+			Vector2 pos = stop.getPos();
+			visited.add(stop);
+			while (!nextNearest.equals(newStops.get(i+1))) {
+
+				nextNearest = newStops.get(i+1);
+				minPosDiff = Double.MAX_VALUE;
+				// XXX does not check head and tail for ComplexLines
+				for (Drawable d : nearby) {
+
+					double dist = Vector2.distanceBetween(pos, d.getPos());
+					if (dist < minPosDiff && !visited.contains(d)) {
+
+						minPosDiff = dist;
+						nextNearest = d;
+						pos = d.getPos();
+
+					}
+
+				}
+
+				visited.add(nextNearest);
+				if (nextNearest.getClass() == ComplexLine.class) {
+
+					ComplexLine nCL = (ComplexLine) nextNearest;
+					if (Vector2.distanceBetween(stop.getPos(), nCL.getHead().getPos()) < Vector2.distanceBetween(stop.getPos(), nCL.getTail().getPos())) {
+
+						for (int idx = nCL.getNodesSize()-1; idx >= 0; idx--) {
+
+							drawPathBuilder.add(nCL.getNode(idx));
+
+						}
+
+					} else {
+
+						for (Node n : nCL.getNodes()) {
+
+							drawPathBuilder.add(n);
+
+						}
+
+					}
+
+				} else {
+
+					drawPathBuilder.add((Node) nextNearest);
+
+				}
+
+			}
+
+		}
+		
+		drawPath = new Node[drawPathBuilder.size()];
+		for (int i = 0; i < drawPathBuilder.size(); i++) {
+			
+			drawPath[i] = drawPathBuilder.get(i);
+			
 		}
 
 	}
@@ -1523,6 +1638,9 @@ class Line {
 	public void setTrains(Train[] trains) { this.trains = trains; }
 	public void setColor(Vector3 col) { this.color = col; }
 	public void setID(String id) { this.id = id; }
+	public Node[] getDrawPath() { return this.drawPath; }
+	public Node getDrawPathPoint(int i) { return this.drawPath[i]; }
+	public int getDrawPathLength() { return this.drawPath.length; }
 	public Node[] getStops() { return this.stops; }
 	public double[] getDists() { return this.dists; }
 	public Node getStop(int i) { return this.stops[i]; }
