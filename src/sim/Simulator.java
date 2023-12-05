@@ -16,11 +16,12 @@ import java.util.Set;
 // TODO reminder for blog post throughout
 
 /* TODO:
- * 	- idea: have trains hook onto the nearest ComplexLine that is part of their line, then travel along it, then continue
+ * 	- have trains hook onto the nearest ComplexLine that is part of their line, then travel along it, then continue
  * 		algorithm will probably require tracking at least 1st-most-recently visited ComplexLine
  * 		OR tbh this should also ideally be done in setup() otherwise it's very computationally expensive considering that paths don't change
  * - click-to-spawn citizens
  * 		will need to temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
+ * - prettier citizen spawning (have them generate across the map, then flock to stations?)
  * - train spawn frequencies built into savefile
  * - clean up some code
  * - better documentation
@@ -1072,6 +1073,7 @@ class Citizen extends Drawable {
 	private double actionTime;
 	private double walkTime;
 	private double walkDist;
+	private Vector2 initialWalkPos;
 	private double speed;
 
 	public Citizen(Sim sim) {
@@ -1137,6 +1139,7 @@ class Citizen extends Drawable {
 			if (walkTime == 0) {
 				
 				walkDist = Vector2.distanceBetween(this.getPos(), nextNode.getPos());
+				initialWalkPos = this.getPos();
 				
 			}
 			if (walkTime >= walkDist) {
@@ -1158,8 +1161,7 @@ class Citizen extends Drawable {
 			} else {
 
 				// walk to station
-				// XXX this moves non-linearly for some reason
-				setPos(Vector2.lerp(walkTime/walkDist, this.getPos(), nextNode.getPos()));
+				setPos(Vector2.lerp(walkTime/walkDist, initialWalkPos, nextNode.getPos()));
 				walkTime += modSpeed;
 				
 			}
