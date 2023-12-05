@@ -16,14 +16,12 @@ import java.util.Set;
 // TODO reminder for blog post throughout
 
 /* TODO:
- * 	- idea: have them hook onto the nearest ComplexLine that is part of their line, then travel along it, then continue
- * 		(ComplexLines would have to have head and tail nodes with pos's which can then be checked using SegmentedNodes (would need to be added to that first))
+ * 	- idea: have trains hook onto the nearest ComplexLine that is part of their line, then travel along it, then continue
  * 		algorithm will probably require tracking at least 1st-most-recently visited ComplexLine
- * 		this should also ideally be done in setup() otherwise it's very computationally expensive considering that paths don't change
+ * 		OR tbh this should also ideally be done in setup() otherwise it's very computationally expensive considering that paths don't change
  * - click-to-spawn citizens
- * 	- will need to temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
+ * 		will need to temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
  * - train spawn frequencies built into savefile
- * - have trains visually travel along ComplexLines
  * - clean up some code
  * - better documentation
  * - ability to click on trains and citizens to see their paths ??
@@ -371,12 +369,13 @@ class Sim extends App {
 		this.citizenSpawnCycleTime = 0;
 		this.citizenDespawnCycleTime = 0;
 		
-		// debug spawning
-		for (int i = 0; i < 1000; i++) {
+		for (int i = 0; i < Citizen.INITIAL_SPAWN_AMOUNT; i++) {
 			
 			citizens.add(new Citizen(this, Node.findPath(sample(nodes, ridershipTotal), sample(nodes, ridershipTotal))));
 			
 		}
+		
+		Logger.log("Populated " + Citizen.INITIAL_SPAWN_AMOUNT + " citizens");
 		
 		Logger.log("Starting simulation!");
 		Logger.disable();
@@ -1053,6 +1052,7 @@ class Citizen extends Drawable {
 	public static final double DEFAULT_CITIZEN_SPEED = 0.2;
 	public static final double DESPAWN_INTERVAL = 4;
 	public static final double MAX_TIME_ALIVE = 2000;
+	public static final int INITIAL_SPAWN_AMOUNT = 1000;
 	public static final double SPAWN_INTERVAL = 4;
 	public static final int SPAWN_RANGE = 64;
 	public static final boolean SPAWN_RANDRANGE = false;
