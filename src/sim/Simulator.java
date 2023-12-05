@@ -15,17 +15,19 @@ import java.util.Set;
 
 // TODO reminder for blog post throughout
 
+// following ComplexLines rebased to another branch
+
 /* TODO:
- * 	- have trains hook onto the nearest ComplexLine that is part of their line, then travel along it, then continue
- * 		algorithm will probably require tracking at least 1st-most-recently visited ComplexLine
- * 		OR tbh this should also ideally be done in setup() otherwise it's very computationally expensive considering that paths don't change
  * - click-to-spawn citizens
  * 		will need to temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
  * - prettier citizen spawning (have them generate across the map, then flock to stations?)
  * - train spawn frequencies built into savefile
  * - clean up some code
  * - better documentation
- * - ability to click on trains and citizens to see their paths ??
+*/
+
+/* Crazy extensions:
+ * - ability to click on trains (or citizens?) to see their paths ??
  * 		this could prove very computationally expensive, don't want to check every citizen and train but also don't want to update segments
  * - multithreading ??
  * - zoom to mouse (work out math) & scaling panning to zoom
@@ -40,7 +42,7 @@ public class Simulator {
 	public static void main(String [] args) {
 
 		// app initialization
-		App app = new Sim(5, new Vector3(0.05, 0.0, 10.0), new Vector3(150, 180, 15), new Vector2(0.9, 1), new Vector2(64, 64), Vector3.white, 1024);
+		App app = new Sim(5, Sim.RECOMMENDED_SIM_SPEED_BOUNDS, new Vector3(150, 180, 15), new Vector2(0.9, 1), new Vector2(64, 64), Vector3.white, 1024);
 
 		app.run();
 
@@ -50,6 +52,7 @@ public class Simulator {
 
 class Sim extends App {
 
+	public static final Vector3 RECOMMENDED_SIM_SPEED_BOUNDS = new Vector3(0.2, 0.0, 10.0);
 	public static final int DEFAULT_CITIZEN_ALLOCATION = 10000;
 	public static final int DEFAULT_TRAIN_ALLOCATION = 8;
 
@@ -64,6 +67,8 @@ class Sim extends App {
 	private ArrayList<Citizen> citizens;
 	
 	private boolean paused;
+	private boolean drawTrains;
+	private boolean drawCitizens;
 
 	private double globalTime;
 	private double citizenSpawnCycleTime;
@@ -107,6 +112,8 @@ class Sim extends App {
 		Logger.log("Started setup");
 		
 		this.paused = false;
+		this.drawTrains = true;
+		this.drawCitizens = false;
 		
 		// mouse wheel zooming
 		this.addMouseWheelListener( new MouseAdapter() {
@@ -460,15 +467,28 @@ class Sim extends App {
 			
 		}
 		
-		// despawn citizens
-		// at higher simulation speeds, citizens seem to be despawned more frequently, resulting in less being handled (which seems fair for performance)
-		if (this.citizenDespawnCycleTime >= Citizen.DESPAWN_INTERVAL * this.timeIncrement) {
+		// drawing adjustments
+		if (keyPressed('T')) {
 			
-			int c1 = 0; int c2 = 0;
+			drawTrains = !drawTrains;
+			
+		}
+		
+		if (keyPressed('Y')) {
+			
+			drawCitizens = !drawCitizens;
+			
+		}
+		
+		// despawn citizens
+		// amount of citizens seems proportional to simulation speed in an unintended way, but it's probably fine for now
+		int c1 = 0; int c2 = 0;
+		if (this.citizenDespawnCycleTime >= Citizen.DESPAWN_INTERVAL) {
+			
 			this.citizenDespawnCycleTime = 0;
 			for (int i = 0; i < citizens.size(); i++) {
 				
-				if (citizens.get(i).getGlobalTime() >= Citizen.MAX_TIME_ALIVE * timeIncrement) {
+				if (citizens.get(i).getGlobalTime() >= Citizen.MAX_TIME_ALIVE) {
 					
 					c1++;
 					citizens.get(i).getCurrentNode().removeCitizen(); // this may cause excessive removals
@@ -491,7 +511,7 @@ class Sim extends App {
 		}
 		
 		// spawn citizens
-		if (this.citizenSpawnCycleTime >= Citizen.SPAWN_INTERVAL * this.timeIncrement) {
+		if (this.citizenSpawnCycleTime >= Citizen.SPAWN_INTERVAL) {
 			
 			this.citizenSpawnCycleTime = 0;
 			int max = Citizen.SPAWN_RANGE;
@@ -505,6 +525,17 @@ class Sim extends App {
 			
 		}
 
+		for (Citizen c : citizens) {
+
+			c.followPath();
+			if (drawCitizens) {
+				
+				Drawable.drawCircle(this, c);
+				
+			}
+
+		}
+		
 		// draw game objects
 		for (ComplexLine cl : complexLines) {
 
@@ -518,24 +549,17 @@ class Sim extends App {
 
 		}
 		
-		for (Citizen c : citizens) {
-
-			c.followPath();
-			if (c.getStatus().equals(TransitStatus.WALKING)) {
-
-				Drawable.drawCircle(this, c);
-
-			}
-
-		}
-		
 		for (Line l : lines) {
 
 			for (Train t : l.getTrains()) {
 
 				t.updatePosAlongLine();
-				Drawable.drawCircle(this, t);
-				Drawable.drawString(this, t, t.getLine().getID(), Vector3.black, Train.FONT_SIZE_CONST, Train.FONT_CENTERED);
+				if (drawTrains) {
+					
+					Drawable.drawCircle(this, t);
+					Drawable.drawString(this, t, t.getLine().getID(), Vector3.black, Train.FONT_SIZE_CONST, Train.FONT_CENTERED);
+					
+				}
 
 			}
 
@@ -1048,7 +1072,7 @@ class Citizen extends Drawable {
 
 	public static final Vector3 DEFAULT_CITIZEN_COLOR = Vector3.black;
 	public static final double DEFAULT_CITIZEN_SIZE = 0.25;
-	public static final double DEFAULT_CONTAINER_CITIZEN_SIZE = 0.05;
+	public static final double DEFAULT_CONTAINER_CITIZEN_SIZE = 0.025;
 	public static final double DEFAULT_UNLOAD_TIME = Train.DEFAULT_STOP_DURATION / 3;
 	public static final double DEFAULT_CITIZEN_SPEED = 0.2;
 	public static final double DESPAWN_INTERVAL = 4;
@@ -1320,7 +1344,7 @@ class Citizen extends Drawable {
 class Train extends CitizenContainer {
 
 	public static final double DEFAULT_TRAIN_SIZE = 1.0;
-	public static final double DEFAULT_STOP_DURATION = 7;
+	public static final double DEFAULT_STOP_DURATION = 8;
 	public static final double DEFAULT_TRAIN_SPEED = 0.3;
 	public static final int FONT_SIZE_CONST = 11;
 	public static final boolean FONT_CENTERED = true;
