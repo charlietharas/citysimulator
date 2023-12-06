@@ -14,8 +14,6 @@ import java.util.PriorityQueue;
 import java.util.Set;
 
 /* TODO:
- * - clean up some code
- * - better documentation
  * - train spawn frequencies built into savefile
  * - find best default parameters
  * - package for release
@@ -25,14 +23,14 @@ import java.util.Set;
  * - click-to-spawn citizens
  * 		will need to temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
  * - prettier citizen spawning (have them generate across the map, then flock to stations?)
- * - ability to click on trains (or citizens?) to see their paths ??
+ * - ability to click on trains (or citizens?) to see their paths
  * 		this could prove very computationally expensive, don't want to check every citizen and train but also don't want to update segments
- * - multithreading ??
+ * - multithreading
  * - zoom to mouse (work out math) & scaling panning to zoom
- * - map rotation ??
- * - background geography ??
- * - simulation statistics (+ graphing ??) ??
- * - time-based pathfinding (not just distance-based, but using train arrival times) ??
+ * - map rotation
+ * - background geography
+ * - simulation statistics (+ graphing?)
+ * - time-based pathfinding (not just distance-based, but using train arrival times)
  * - trains visually follow ComplexLine paths (this has been moved to another branch!)
  */
 
@@ -41,7 +39,12 @@ public class Simulator {
 	public static void main(String [] args) {
 
 		// app initialization
-		App app = new Sim(5, Sim.RECOMMENDED_SIM_SPEED_BOUNDS, new Vector3(150, 180, 15), new Vector2(0.9, 1), new Vector2(64, 64), Vector3.white, 1024);
+		Vector3 worldSize = new Vector3(150, 180, 15);
+		Vector2 xyScaling = new Vector2(0.9, 1);
+		Vector2 windowTopLeftCornerInPixels = new Vector2(64, 64);
+		Vector3 backgroundColor = Vector3.white;
+		int windowHeightInPixels = 1024;
+		App app = new Sim(Sim.DEFAULT_INITIAL_SPEED, Sim.DEFAULT_SIM_SPEED_BOUNDS, worldSize, xyScaling,windowTopLeftCornerInPixels , backgroundColor, windowHeightInPixels);
 
 		app.run();
 
@@ -51,9 +54,10 @@ public class Simulator {
 
 class Sim extends App {
 
-	public static final Vector3 RECOMMENDED_SIM_SPEED_BOUNDS = new Vector3(0.2, 0.0, 10.0);
+	public static final Vector3 DEFAULT_SIM_SPEED_BOUNDS = new Vector3(0.2, 0.0, 10.0);
 	public static final int DEFAULT_CITIZEN_ALLOCATION = 10000;
 	public static final int DEFAULT_TRAIN_ALLOCATION = 8;
+	public static final double DEFAULT_INITIAL_SPEED = 5;
 
 	private Line[] lines;
 	private Node[] nodes;
@@ -360,6 +364,7 @@ class Sim extends App {
 
 		}
 		
+		// does not account for heads/tails (see ComplexLines branch)
 		for (ComplexLine n : complexLines) { 
 
 			int xIndex = ((int) (this._windowWidthInWorldUnits/2 + n.getPos().x)/nodeSegmentSize) + 1;
