@@ -14,7 +14,6 @@ import java.util.PriorityQueue;
 import java.util.Set;
 
 /* TODO:
- * - train spawn frequencies built into savefile
  * - package for release
 */
 
@@ -833,8 +832,8 @@ class Node extends CitizenContainer {
 	public static final double DEFAULT_NODE_SIZE = 0.5;
 	public static final double DEFAULT_TRANSFER_WEIGHT = 16;
 	public static final double DEFAULT_TRANSFER_MAX_DIST = 2;
-	public static final double DEFAULT_CONST_STOP_PENALTY = Train.DEFAULT_STOP_DURATION;
-	public static final double DEFAULT_CONST_TRANSFER_PENALTY = DEFAULT_CONST_STOP_PENALTY * 2;
+	public static final double DEFAULT_CONST_STOP_PENALTY = 2;
+	public static final double DEFAULT_CONST_TRANSFER_PENALTY = 16;
 
 	private HashMap<PathWrapper, Double> neighbors;
 	private HashMap<String, Train> currentTrains;
@@ -1045,8 +1044,8 @@ class Citizen extends Drawable {
 	public static final double MAX_TIME_ALIVE = 2048;
 	public static final int INITIAL_SPAWN_AMOUNT = 1024;
 	public static final double SPAWN_INTERVAL = 4;
-	public static final int SPAWN_RANGE = 64;
-	public static final boolean SPAWN_RANDRANGE = false;
+	public static final int SPAWN_RANGE = 128;
+	public static final boolean SPAWN_RANDRANGE = true;
 
 	private Sim sim;
 	private TransitStatus status;
@@ -1089,7 +1088,8 @@ class Citizen extends Drawable {
 	}
 
 	// just so you know, this function is a pretty horrible mess
-	// may not be 100% conservative (e.g. extra citizens may be getting incorrectly added/removed from visuals)
+	// not 100% conservative (e.g. extra citizens are getting incorrectly added/removed from visuals)
+	//	DEFINITE: not all citizens are being correctly visually despawned
 	public void followPath() {
 				
 		if (status == TransitStatus.DESPAWN) { return; }
