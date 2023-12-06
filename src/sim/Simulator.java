@@ -13,28 +13,14 @@ import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-// TODO reminder for blog post throughout
+// this version of the simulator file focuses exclusively on getting trains to follow ComplexLines, so it may be a bit behind/messy
 
-// TODO need to edit lines_geom to have correct segment IDs for S-lines and A-lines
+// TODO need to edit lines_geom to have correct segment IDs for S-lines and A-lines for this to work
 
 /* TODO:
  * 	- have trains hook onto the nearest ComplexLine that is part of their line, then travel along it, then continue
  * 		algorithm will probably require tracking at least 1st-most-recently visited ComplexLine
  * 		OR tbh this should also ideally be done in setup() otherwise it's very computationally expensive considering that paths don't change
- * - click-to-spawn citizens
- * 		will need to temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
- * - prettier citizen spawning (have them generate across the map, then flock to stations?)
- * - train spawn frequencies built into savefile
- * - clean up some code
- * - better documentation
- * - ability to click on trains and citizens to see their paths ??
- * 		this could prove very computationally expensive, don't want to check every citizen and train but also don't want to update segments
- * - multithreading ??
- * - zoom to mouse (work out math) & scaling panning to zoom
- * - map rotation ??
- * - background geography ??
- * - simulation statistics (+ graphing ??) ??
- * - time-based pathfinding (not just distance-based, but using train arrival times) ??
  */
 
 public class Simulator {
