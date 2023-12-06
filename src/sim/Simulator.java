@@ -13,20 +13,19 @@ import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-// TODO reminder for blog post throughout
-
-// following ComplexLines rebased to another branch
-
 /* TODO:
- * - click-to-spawn citizens
- * 		will need to temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
- * - prettier citizen spawning (have them generate across the map, then flock to stations?)
- * - train spawn frequencies built into savefile
  * - clean up some code
  * - better documentation
+ * - train spawn frequencies built into savefile
+ * - train capacities
+ * - find best default parameters
+ * - package for release
 */
 
 /* Crazy extensions:
+ * - click-to-spawn citizens
+ * 		will need to temporarily create additional nodes at points, generate neighbors, then incorporate those into pathfinding mechanisms
+ * - prettier citizen spawning (have them generate across the map, then flock to stations?)
  * - ability to click on trains (or citizens?) to see their paths ??
  * 		this could prove very computationally expensive, don't want to check every citizen and train but also don't want to update segments
  * - multithreading ??
@@ -35,6 +34,7 @@ import java.util.Set;
  * - background geography ??
  * - simulation statistics (+ graphing ??) ??
  * - time-based pathfinding (not just distance-based, but using train arrival times) ??
+ * - trains visually follow ComplexLine paths (this has been moved to another branch!)
  */
 
 public class Simulator {
@@ -524,17 +524,6 @@ class Sim extends App {
 			Logger.log("Spawned " + max + " citizens");
 			
 		}
-
-		for (Citizen c : citizens) {
-
-			c.followPath();
-			if (drawCitizens) {
-				
-				Drawable.drawCircle(this, c);
-				
-			}
-
-		}
 		
 		// draw game objects
 		for (ComplexLine cl : complexLines) {
@@ -565,31 +554,23 @@ class Sim extends App {
 
 		}
 		
+		for (Citizen c : citizens) {
+
+			c.followPath();
+			// checking for walking speeds up draw time significantly, but may hinder debug efforts
+			if (drawCitizens && c.getStatus().equals(TransitStatus.WALKING)) {
+				
+				Drawable.drawCircle(this, c);
+				
+			}
+
+		}
+		
 		drawString("Current simulation speed: " + String.format("%.3f", this.timeIncrement), this.textPos, Vector3.black, 12, false);
 		drawString("Active citizen agents: " + citizens.size(), this.text2Pos, Vector3.black, 12, false);
 
 	}
-
-	public Node findNode(String id, boolean contains) {
-
-		for (Node n : nodes) {
-
-			if (contains) { 
-
-				if (n.getID().contains(id)) { return n; }
-
-			} else {
-
-				if (n.getID().equals(id)) { return n; }
-
-			}
-
-		}
-
-		return null;
-
-	}
-
+	
 	public static Vector2 getMinMax(double[] arr) {
 
 		if (arr == null || arr.length == 0) { return null; }
@@ -655,7 +636,7 @@ class Sim extends App {
 		public static void log(String str) {
 			
 			if (!enabled) { return; }
-			System.out.println((System.currentTimeMillis() - time) / 1000.0 + "ms: " + str);
+			System.out.println(String.format("%.3f", (System.currentTimeMillis() - time) / 1000.0) + "ms: " + str);
 			
 		}
 		
@@ -705,6 +686,12 @@ class Drawable {
 		this.size = size;
 
 	}
+	
+	public static double constrict(double d, double min, double max) {
+
+		return Math.min(Math.max(d, min), max);
+
+	}
 
 	public static void adjustPan(double x, double y) {
 
@@ -717,12 +704,6 @@ class Drawable {
 
 		pan.x = constrict(pan.x, -PAN_X_MINMAX, PAN_X_MINMAX);
 		pan.y = constrict(pan.y, -PAN_Y_MINMAX, PAN_Y_MINMAX);
-
-	}
-
-	public static double constrict(double d, double min, double max) {
-
-		return Math.min(Math.max(d, min), max);
 
 	}
 
@@ -860,31 +841,13 @@ class Node extends CitizenContainer {
 
 	public Node(Vector2 pos, Vector3 color, int ridership) {
 
-		super("", pos, color, DEFAULT_NODE_SIZE);
-		clear();
-		this.score = 0; this.ridership = ridership;
-
-	}
-
-	public Node(Vector2 pos, Vector3 color, int ridership, double size) {
-
-		super("", pos, color, size);
-		clear();
-		this.score = 0; this.ridership = ridership;
+		this("", pos, color, ridership);
 
 	}
 
 	public Node(String id, Vector2 pos, Vector3 color, int ridership) {
 
 		super(id, pos, color, DEFAULT_NODE_SIZE);
-		clear();
-		this.score = 0; this.ridership = ridership;
-
-	}
-
-	public Node(String id, Vector2 pos, Vector3 color, int ridership, double size) {
-
-		super(id, pos, color, size);
 		clear();
 		this.score = 0; this.ridership = ridership;
 
@@ -1105,15 +1068,7 @@ class Citizen extends Drawable {
 		super(new Vector2(), Citizen.DEFAULT_CITIZEN_COLOR, Citizen.DEFAULT_CITIZEN_SIZE);
 		this.sim = sim;
 		clearVariables();
-	}
-
-	public Citizen(Sim sim, Node.PathWrapper[] path) {
-
-		super(new Vector2(), Citizen.DEFAULT_CITIZEN_COLOR, Citizen.DEFAULT_CITIZEN_SIZE);
-		this.sim = sim;
-		this.path = path;
-		clearVariables();
-
+		
 	}
 
 	public Citizen(Sim sim, ArrayList<Node.PathWrapper> path) {
@@ -1426,7 +1381,7 @@ class Train extends CitizenContainer {
 class Line {
 
 	public static int DEFAULT_TRAIN_SPAWN_SPACING = 8;
-	public static Line WALKING_LINE = new Line("Transfer", null, null, null);
+	public static Line WALKING_LINE = new Line("Transfer");
 
 	private String id;
 	private Vector3 color;
@@ -1438,15 +1393,6 @@ class Line {
 	public Line(String id) {
 
 		this.id = id;
-
-	}
-
-	public Line(String id, Node[] stops, double[] dists, Train[] trains) {
-
-		this(id);
-		this.stops = stops;
-		this.dists = dists;
-		this.trains = trains;
 
 	}
 
@@ -1524,22 +1470,6 @@ class Line {
 			this.stops[i].setColor(color);
 
 		}
-
-	}
-
-	public void addTrain(Train train) {
-
-		if (this.trains == null) { this.trains = new Train[0]; }
-		Train[] trainsNew = new Train[this.trains.length + 1];
-
-		for (int i = 0; i < this.trains.length; i++) {
-
-			trainsNew[i] = this.trains[i];
-
-		}
-
-		trainsNew[trainsNew.length-1] = train;
-		this.trains = trainsNew;
 
 	}
 
