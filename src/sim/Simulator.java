@@ -17,7 +17,6 @@ import java.util.Set;
  * - clean up some code
  * - better documentation
  * - train spawn frequencies built into savefile
- * - train capacities
  * - find best default parameters
  * - package for release
 */
@@ -1159,7 +1158,7 @@ class Citizen extends Drawable {
 			for (Train t : this.currentNode.getCurrentTrains().values()) {
 
 				// path-taking is greedy (e.g. takes any available train to next stop)
-				if (t.getRealNextStop().equals(nextNode)) {
+				if (t.getRealNextStop().equals(nextNode) && t.getCitizens() <= Train.DEFAULT_TRAIN_CAPACITY) {
 
 					// ready to board train
 					this.currentNode.removeCitizen();
@@ -1298,6 +1297,7 @@ class Citizen extends Drawable {
 
 class Train extends CitizenContainer {
 
+	public static final int DEFAULT_TRAIN_CAPACITY = 150;
 	public static final double DEFAULT_TRAIN_SIZE = 1.0;
 	public static final double DEFAULT_STOP_DURATION = 8;
 	public static final double DEFAULT_TRAIN_SPEED = 0.3;
