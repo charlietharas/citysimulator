@@ -15,7 +15,6 @@ import java.util.Set;
 
 /* TODO:
  * - train spawn frequencies built into savefile
- * - find best default parameters
  * - package for release
 */
 
@@ -832,9 +831,9 @@ class CitizenContainer extends Drawable {
 class Node extends CitizenContainer {
 
 	public static final double DEFAULT_NODE_SIZE = 0.5;
-	public static final double DEFAULT_TRANSFER_WEIGHT = 20;
-	public static final double DEFAULT_TRANSFER_MAX_DIST = 3;
-	public static final double DEFAULT_CONST_STOP_PENALTY = Train.DEFAULT_STOP_DURATION * 2;
+	public static final double DEFAULT_TRANSFER_WEIGHT = 16;
+	public static final double DEFAULT_TRANSFER_MAX_DIST = 2;
+	public static final double DEFAULT_CONST_STOP_PENALTY = Train.DEFAULT_STOP_DURATION;
 	public static final double DEFAULT_CONST_TRANSFER_PENALTY = DEFAULT_CONST_STOP_PENALTY * 2;
 
 	private HashMap<PathWrapper, Double> neighbors;
@@ -1039,12 +1038,12 @@ class Citizen extends Drawable {
 
 	public static final Vector3 DEFAULT_CITIZEN_COLOR = Vector3.black;
 	public static final double DEFAULT_CITIZEN_SIZE = 0.25;
-	public static final double DEFAULT_CONTAINER_CITIZEN_SIZE = 0.025;
-	public static final double DEFAULT_UNLOAD_TIME = Train.DEFAULT_STOP_DURATION / 3;
-	public static final double DEFAULT_CITIZEN_SPEED = 0.2;
+	public static final double DEFAULT_CONTAINER_CITIZEN_SIZE = (CitizenContainer.MAX_SIZE - Train.DEFAULT_TRAIN_SIZE) / Train.DEFAULT_TRAIN_CAPACITY;
+	public static final double DEFAULT_UNLOAD_TIME = Train.DEFAULT_STOP_DURATION / 4;
+	public static final double DEFAULT_CITIZEN_SPEED = 0.05;
 	public static final double DESPAWN_INTERVAL = 4;
-	public static final double MAX_TIME_ALIVE = 2000;
-	public static final int INITIAL_SPAWN_AMOUNT = 1000;
+	public static final double MAX_TIME_ALIVE = 2048;
+	public static final int INITIAL_SPAWN_AMOUNT = 1024;
 	public static final double SPAWN_INTERVAL = 4;
 	public static final int SPAWN_RANGE = 64;
 	public static final boolean SPAWN_RANDRANGE = false;
@@ -1302,10 +1301,10 @@ class Citizen extends Drawable {
 
 class Train extends CitizenContainer {
 
-	public static final int DEFAULT_TRAIN_CAPACITY = 150;
+	public static final int DEFAULT_TRAIN_CAPACITY = 128;
 	public static final double DEFAULT_TRAIN_SIZE = 1.0;
-	public static final double DEFAULT_STOP_DURATION = 8;
-	public static final double DEFAULT_TRAIN_SPEED = 0.3;
+	public static final double DEFAULT_STOP_DURATION = 10;
+	public static final double DEFAULT_TRAIN_SPEED = 0.1;
 	public static final int FONT_SIZE_CONST = 11;
 	public static final boolean FONT_CENTERED = true;
 
@@ -1385,7 +1384,7 @@ class Train extends CitizenContainer {
 
 class Line {
 
-	public static int DEFAULT_TRAIN_SPAWN_SPACING = 8;
+	public static int DEFAULT_TRAIN_SPAWN_SPACING = 3;
 	public static Line WALKING_LINE = new Line("Transfer");
 
 	private String id;
