@@ -827,7 +827,7 @@ class Node extends CitizenContainer {
 
 	public static final double DEFAULT_NODE_SIZE = 0.5;
 	public static final double DEFAULT_TRANSFER_WEIGHT = 16;
-	public static final double DEFAULT_TRANSFER_MAX_DIST = 2;
+	public static final double DEFAULT_TRANSFER_MAX_DIST = 2.5;
 	public static final double DEFAULT_CONST_STOP_PENALTY = 2;
 	public static final double DEFAULT_CONST_TRANSFER_PENALTY = 16;
 
@@ -1091,12 +1091,6 @@ class Citizen extends Drawable {
 	public void followPath() {
 				
 		if (status == TransitStatus.DESPAWN) { return; }
-		
-		if (actionTime == 0 && pathIndex == 0) {
-
-			setPos(path[0].getNode());
-
-		}
 
 		double modSpeed = speed * sim.getTimeIncrement();
 		globalTime += sim.getTimeIncrement();
@@ -1205,6 +1199,8 @@ class Citizen extends Drawable {
 						currentNode.addCitizen();
 						
 					}
+					
+					setPos(currentNode);
 					
 					currentTrain = null;
 					actionTime = 0;
