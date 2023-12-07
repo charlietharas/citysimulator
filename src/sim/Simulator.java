@@ -1468,7 +1468,7 @@ class Train extends CitizenContainer {
 	public static final int FONT_SIZE = 11;
 	public static final boolean FONT_CENTERED = true;
 	public static final boolean GREEDY_PATH = true;
-	public static final int SMALL_CITIZENS = 16;
+	public static final int SMALL_CITIZENS = 1;
 
 	private TransitStatus status;
 	private Sim sim;
