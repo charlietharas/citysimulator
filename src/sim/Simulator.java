@@ -108,9 +108,7 @@ class Sim extends App {
 	void setup() {
 
 		Logger.log("Started setup");
-		
-		String devPath = "";
-		
+				
 		this.paused = false;
 		this.drawTrains = true;
 		this.drawCitizens = false;
