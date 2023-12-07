@@ -49,7 +49,7 @@ public class Simulator {
 class Sim extends App {
 
 	public static final Vector3 DEFAULT_SIM_SPEED_BOUNDS = new Vector3(0.2, 0.0, 10.0);
-	public static final int DEFAULT_CITIZEN_ALLOCATION = 10000;
+	public static final int DEFAULT_CITIZEN_ALLOCATION = 1024;
 	public static final int DEFAULT_TRAIN_ALLOCATION = 8;
 	public static final double DEFAULT_INITIAL_SPEED = 5;
 
@@ -107,6 +107,8 @@ class Sim extends App {
 
 		Logger.log("Started setup");
 		
+		String devPath = "src/";
+		
 		this.paused = false;
 		this.drawTrains = true;
 		this.drawCitizens = false;
@@ -137,7 +139,7 @@ class Sim extends App {
 		numStops = 0;
 		
 		int c = 0;
-		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/stations_data.csv")) ) {
+		try (BufferedReader reader = new BufferedReader(new FileReader(devPath + "sim/stations_data.csv")) ) {
 
 			String line;
 
@@ -255,7 +257,7 @@ class Sim extends App {
 
 		// load in configurations for proper stop orders for lines
 		HashMap<String, String> lineConfigs = new HashMap<String, String>();
-		try (BufferedReader reader = new BufferedReader(new FileReader("src/sim/lines_stations.csv")) ) {
+		try (BufferedReader reader = new BufferedReader(new FileReader(devPath + "sim/lines_stations.csv")) ) {
 
 			String line;
 			while ((line = reader.readLine()) != null) {
@@ -303,7 +305,7 @@ class Sim extends App {
 
 		// generate complex lines for drawing
 		ArrayList<ComplexLine> complexLinesBuilder = new ArrayList<ComplexLine>();
-		try(BufferedReader reader = new BufferedReader(new FileReader("src/sim/lines_geom_data.csv")) ) {
+		try(BufferedReader reader = new BufferedReader(new FileReader(devPath + "sim/lines_geom_data.csv")) ) {
 
 			String line;
 
@@ -375,7 +377,7 @@ class Sim extends App {
 			citizens.add(new Citizen(this, Node.findPath(sample(nodes, ridershipTotal), sample(nodes, ridershipTotal))));
 			
 		}
-		
+				
 		Logger.log("Populated " + Citizen.INITIAL_SPAWN_AMOUNT + " citizens");
 		
 		Logger.log("Starting simulation!");
@@ -477,7 +479,6 @@ class Sim extends App {
 		int c1 = 0; int c2 = 0;
 		if (this.citizenSpawnCycleTime >= Citizen.SPAWN_INTERVAL) {
 			
-			this.citizenSpawnCycleTime = 0;
 			for (int i = 0; i < citizens.size(); i++) {
 				
 				if (citizens.get(i).getGlobalTime() >= Citizen.MAX_TIME_ALIVE) {
@@ -500,12 +501,6 @@ class Sim extends App {
 			
 			Logger.log("Despawned " + (c1+c2) + " citizens, " + c1 + " garbage collected and " + c2 + " natural");
 			
-		}
-		
-		// spawn citizens
-		if (this.citizenSpawnCycleTime >= Citizen.SPAWN_INTERVAL) {
-			
-			this.citizenSpawnCycleTime = 0;
 			int max = Citizen.SPAWN_RANGE;
 			if (Citizen.SPAWN_RANDRANGE) { max *= Math.random(); }
 			for (int i = 0; i < max; i++) {
@@ -515,6 +510,7 @@ class Sim extends App {
 			}
 			
 			Logger.log("Spawned " + max + " citizens");
+
 			
 		}
 		
@@ -1055,19 +1051,19 @@ class Citizen extends Drawable {
 	private Vector2 initialWalkPos;
 	private double speed;
 
-	public Citizen(Sim sim) {
+	public Citizen(Sim sim, ArrayList<Node.PathWrapper> path) {
 
 		super(new Vector2(), Citizen.DEFAULT_CITIZEN_COLOR, Citizen.DEFAULT_CITIZEN_SIZE);
 		this.sim = sim;
 		
-		if (this.path == null || this.path.length <= 1) {
+		if (path == null || path.size() <= 1) {
 			
 			this.status = TransitStatus.DESPAWN;
 			return;
 			
 		}
 		
-		setPos(path[0].getNode());
+		setPos(path.get(0).getNode());
 		this.status = TransitStatus.SPAWN;
 		this.pathIndex = 0;
 		this.globalTime = 0;
@@ -1076,11 +1072,7 @@ class Citizen extends Drawable {
 		this.speed = Citizen.DEFAULT_CITIZEN_SPEED;
 		justBoarded = false;
 		
-	}
-
-	public Citizen(Sim sim, ArrayList<Node.PathWrapper> path) {
-
-		this(sim);
+		
 		this.path = new Node.PathWrapper[path.size()];
 		for (int i = 0; i < this.path.length; i++) {
 
@@ -1294,7 +1286,7 @@ class Citizen extends Drawable {
 
 class Train extends CitizenContainer {
 
-	public static final int DEFAULT_TRAIN_CAPACITY = 128;
+	public static final int DEFAULT_TRAIN_CAPACITY = 256;
 	public static final double DEFAULT_TRAIN_SIZE = 1.0;
 	public static final double DEFAULT_STOP_DURATION = 10;
 	public static final double DEFAULT_TRAIN_SPEED = 0.1;
