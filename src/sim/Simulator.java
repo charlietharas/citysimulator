@@ -3,8 +3,9 @@ package sim;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseWheelEvent;
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -138,8 +139,9 @@ class Sim extends App {
 		
 		int c = 0;
 		
-		try (BufferedReader reader = new BufferedReader(new FileReader(getClass().getResource("/sim/stations_data.csv").getFile()))) {
+		try (InputStream in = getClass().getResourceAsStream("stations_data.csv")) {
 
+			BufferedReader reader = new BufferedReader(new InputStreamReader(in));
 			String line;
 
 			while ((line = reader.readLine()) != null) {
@@ -175,7 +177,7 @@ class Sim extends App {
 
 			}
 
-		} catch (IOException e) { Logger.log("Could not load station data"); assert false; }
+		} catch (IOException e) { Logger.log("Could not load station data"); e.printStackTrace(); assert false; }
 		
 		nodes = new Node[numStops];
 		double[] stationX = new double[numStops];
@@ -256,8 +258,9 @@ class Sim extends App {
 
 		// load in configurations for proper stop orders for lines
 		HashMap<String, String> lineConfigs = new HashMap<String, String>();
-		try (BufferedReader reader = new BufferedReader(new FileReader(getClass().getResource("/sim/lines_stations.csv").getFile()))) {
+		try (InputStream in = getClass().getResourceAsStream("lines_stations.csv")) {
 
+			BufferedReader reader = new BufferedReader(new InputStreamReader(in));
 			String line;
 			while ((line = reader.readLine()) != null) {
 
@@ -304,8 +307,9 @@ class Sim extends App {
 
 		// generate complex lines for drawing
 		ArrayList<ComplexLine> complexLinesBuilder = new ArrayList<ComplexLine>();
-		try (BufferedReader reader = new BufferedReader(new FileReader(getClass().getResource("/sim/lines_geom_data.csv").getFile()))) {
+		try (InputStream in = getClass().getResourceAsStream("lines_geom_data.csv")) {
 
+			BufferedReader reader = new BufferedReader(new InputStreamReader(in));
 			String line;
 
 			while ((line = reader.readLine()) != null) {
