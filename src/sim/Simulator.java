@@ -12,7 +12,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 
+// please note that adjusting hyperparameters (eg. train speed, citizen spawn rate) drastically affects the simulation (yeah, I know, duh)
+
 /* Potential extensions:
+ * - better ways to customize hyperparameters
  * - custom per-line headways/frequencies and speeds
  * - train delays
  * - ability to click on trains (or citizens?) to see their paths
@@ -1197,7 +1200,7 @@ class Citizen extends Drawable {
 	public static final double DEFAULT_CITIZEN_SIZE = 0.25;
 	public static final double DEFAULT_CONTAINER_CITIZEN_SIZE = (CitizenContainer.MAX_SIZE - Train.DEFAULT_TRAIN_SIZE) / Train.DEFAULT_TRAIN_CAPACITY;
 	public static final double DEFAULT_UNLOAD_TIME = 16;
-	public static final double DEFAULT_CITIZEN_SPEED = 0.05;
+	public static final double DEFAULT_CITIZEN_SPEED = 0.02;
 	public static final double MAX_TIME_ALIVE = 2048;
 	public static final double SPAWN_MAX_DIST = 10;
 	public static final double CLICK_SPAWN_MAX_DIST = 10;
