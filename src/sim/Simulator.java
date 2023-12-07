@@ -18,9 +18,10 @@ import java.util.PriorityQueue;
  * - better ways to customize hyperparameters
  * - custom per-line headways/frequencies and speeds
  * - train delays
+ * - commuter frequencies (e.g. flow in/out of the city on a daily schedule)
  * - ability to click on trains (or citizens?) to see their paths
  * 		this could prove very computationally expensive, don't want to check every citizen and train but also don't want to update segments
- * - multithreading
+ * - multithreading / general efficiency improvements
  * - zoom to mouse & scaling panning to zoom
  * - map rotation
  * - background geography
@@ -557,7 +558,7 @@ class Sim extends App {
 			for (int i = 0; i < max; i++) {
 				
 				if (mousePosNode.getNeighbors().size() != 0) { from = sample(neighboringNodes); }
-				citizens.add(new Citizen(this, Node.generateWalkingPath(mousePosNode, from, sample(nodes, ridershipTotal))));
+				citizens.add(new Citizen(this, Node.generateWalkingPath(mousePosNode, from, sample(this.nodes, this.ridershipTotal))));
 				
 			}
 			
@@ -635,7 +636,7 @@ class Sim extends App {
 				t.updatePosAlongLine();
 				if (drawTrains % 3 != 2) {
 					
-					if (drawTrains % 3 == 1 && t.getCitizens() >= Train.SMALL_CITIZENS || drawTrains %3 == 0) {
+					if (drawTrains % 3 == 0 || drawTrains % 3 == 1 && t.getCitizens() >= Train.SMALL_CITIZENS) {
 						
 						Drawable.drawCircle(this, t);
 						Drawable.drawString(this, t, t.getLine().getID(), Vector3.black, Train.FONT_SIZE, Train.FONT_CENTERED);
@@ -1204,10 +1205,10 @@ class Citizen extends Drawable {
 	public static final double MAX_TIME_ALIVE = 2048;
 	public static final double SPAWN_MAX_DIST = 10;
 	public static final double CLICK_SPAWN_MAX_DIST = 10;
-	public static final double SPAWN_INTERVAL = 4;
+	public static final double SPAWN_INTERVAL = 1;
 	public static final int INITIAL_SPAWN_AMOUNT = 1024;
-	public static final int SPAWN_MAX = 128;
-	public static final int CLICK_SPAWN_MAX = 128;
+	public static final int SPAWN_MAX = 256;
+	public static final int CLICK_SPAWN_MAX = 1024;
 	public static final boolean SPAWN_RANDRANGE = true;
 
 	private Sim sim;
@@ -1461,7 +1462,7 @@ class Citizen extends Drawable {
 
 class Train extends CitizenContainer {
 
-	public static final int DEFAULT_TRAIN_CAPACITY = 256;
+	public static final int DEFAULT_TRAIN_CAPACITY = 512;
 	public static final double DEFAULT_TRAIN_SIZE = 1.0;
 	public static final double DEFAULT_STOP_DURATION = 12;
 	public static final double DEFAULT_TRAIN_SPEED = 0.08;
@@ -1548,7 +1549,7 @@ class Train extends CitizenContainer {
 
 class Line {
 
-	public static final int DEFAULT_TRAIN_SPAWN_SPACING = 3;
+	public static final int DEFAULT_TRAIN_SPAWN_SPACING = 5;
 	public static final Line WALKING_LINE = new Line("Transfer");
 
 	private String id;
