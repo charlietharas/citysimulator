@@ -4,8 +4,10 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseWheelEvent;
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -107,7 +109,7 @@ class Sim extends App {
 
 		Logger.log("Started setup");
 		
-		String devPath = "src/";
+		String devPath = "";
 		
 		this.paused = false;
 		this.drawTrains = true;
@@ -139,14 +141,15 @@ class Sim extends App {
 		numStops = 0;
 		
 		int c = 0;
-		try (BufferedReader reader = new BufferedReader(new FileReader(devPath + "sim/stations_data.csv")) ) {
+		
+		try (BufferedReader reader = new BufferedReader(new FileReader(getClass().getResource("/sim/stations_data.csv").getFile()))) {
 
 			String line;
 
 			while ((line = reader.readLine()) != null) {
 				
 				numStops++;
-				String[] n = line.split(",");
+				String[] n = line.split(",");				
 				String[] stopLines = n[4].split("-");
 
 				for (String str : stopLines) {
@@ -257,7 +260,7 @@ class Sim extends App {
 
 		// load in configurations for proper stop orders for lines
 		HashMap<String, String> lineConfigs = new HashMap<String, String>();
-		try (BufferedReader reader = new BufferedReader(new FileReader(devPath + "sim/lines_stations.csv")) ) {
+		try (BufferedReader reader = new BufferedReader(new FileReader(getClass().getResource("/sim/lines_stations.csv").getFile()))) {
 
 			String line;
 			while ((line = reader.readLine()) != null) {
@@ -305,7 +308,7 @@ class Sim extends App {
 
 		// generate complex lines for drawing
 		ArrayList<ComplexLine> complexLinesBuilder = new ArrayList<ComplexLine>();
-		try(BufferedReader reader = new BufferedReader(new FileReader(devPath + "sim/lines_geom_data.csv")) ) {
+		try (BufferedReader reader = new BufferedReader(new FileReader(getClass().getResource("/sim/lines_geom_data.csv").getFile()))) {
 
 			String line;
 
@@ -479,6 +482,7 @@ class Sim extends App {
 		int c1 = 0; int c2 = 0;
 		if (this.citizenSpawnCycleTime >= Citizen.SPAWN_INTERVAL) {
 			
+			this.citizenSpawnCycleTime = 0;
 			for (int i = 0; i < citizens.size(); i++) {
 				
 				if (citizens.get(i).getGlobalTime() >= Citizen.MAX_TIME_ALIVE) {
