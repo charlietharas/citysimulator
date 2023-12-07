@@ -174,7 +174,7 @@ class Sim extends App {
 
 			}
 
-		} catch (IOException e) { assert false; }
+		} catch (IOException e) { Logger.log("Could not load station data"); assert false; }
 		
 		nodes = new Node[numStops];
 		double[] stationX = new double[numStops];
@@ -267,7 +267,7 @@ class Sim extends App {
 
 			}
 
-		} catch (IOException e) { assert false; }
+		} catch (IOException e) { Logger.log("Could not load line data"); assert false; }
 
 		// apply line configurations
 		c = 0;
@@ -342,7 +342,7 @@ class Sim extends App {
 
 			}
 
-		} catch (IOException e) { assert false; }
+		} catch (IOException e) { Logger.log("Could not load ComplexLine data"); assert false; }
 
 		complexLines = new ComplexLine[complexLinesBuilder.size()];
 		for (int i = 0; i < complexLines.length; i++) {
